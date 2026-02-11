@@ -147,7 +147,6 @@
         }
 
         /* 7. TABELA DE RESULTADOS */
-        #escalaResultado { padding: 25px; background: var(--white); border-radius: 10px; text-align: center; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9em; text-align: left; }
         th { background: #f8f9fa; color: var(--primary); padding: 12px 8px; border-bottom: 2px solid var(--primary); }
         body.dark-mode th { background: #334155; color: #fff; border-bottom-color: #60a5fa; }
@@ -155,21 +154,70 @@
         body.dark-mode td { color: #f1f5f9; }
         
         .btn-icon { background: none; border: none; cursor: pointer; font-size: 1.1em; padding: 4px; opacity: 0.7; }
-        body.dark-mode .btn-icon { filter: brightness(1.5); }
         .titulo-escala-gerada { display: none; color: var(--primary); margin: 10px 0; font-size: 1.5em; font-weight: 800; text-transform: uppercase; }
         body.dark-mode .titulo-escala-gerada { color: #fff; }
 
-        /* Badges específicas para o departamento de Louvor */
-        .badge-louvor { font-size: 0.75em; font-weight: bold; text-transform: uppercase; padding: 2px 5px; border-radius: 4px; margin-right: 5px; display: inline-block; min-width: 100px; text-align: center; }
-        .bg-congregacional { background: #e3f2fd; color: #0d47a1; }
-        .bg-especial { background: #f3e5f5; color: #4a148c; }
-        body.dark-mode .bg-congregacional { background: #1e3a8a; color: #bfdbfe; }
-        body.dark-mode .bg-especial { background: #4c1d95; color: #ddd6fe; }
+        /* 8. EXPORTAÇÃO (IMAGEM FINAL) */
+        
+        /* Container invisível onde a mágica acontece */
+        #escala-export {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 800px;
+            padding: 40px;
+            background-size: cover;
+            background-position: center;
+            display: block;
+            border-radius: 0;
+        }
 
-        /* Ocultação de elementos durante o "print" da imagem */
-        .capturando .col-acoes, .capturando .btn-theme-toggle, .capturando .side-controls, .capturando .no-capture { display: none !important; }
-        .capturando .titulo-escala-gerada { display: block !important; }
-        .capturando { width: 600px !important; }
+        /* O Vidro da Foto Final */
+        .overlay-export {
+            background: rgba(255, 255, 255, 0.75); /* Branco bem transparente */
+            backdrop-filter: blur(15px) saturate(180%);
+            -webkit-backdrop-filter: blur(15px) saturate(180%);
+            padding: 30px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        /* Ajuste do Vidro na Exportação se estiver em modo dark */
+        body.dark-mode .overlay-export {
+            background: rgba(15, 23, 42, 0.8); /* Azul escuro transparente */
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Classes auxiliares para o print */
+        .capturando .no-capture, 
+        .capturando .side-controls, 
+        .capturando .col-acoes { 
+            display: none !important; 
+        }
+
+        /* Badges específicas para o departamento de Louvor */
+        .badge-louvor { 
+            font-size: 0.7em; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+            padding: 3px 8px; 
+            border-radius: 6px; 
+            margin-bottom: 3px; 
+            display: inline-block; /* Mantém o fundo apenas no tamanho do texto */
+            width: fit-content;
+        }
+
+        /* Cores vibrantes para o fundo */
+        .bg-congregacional { 
+            background-color: #002e5d !important; 
+            color: #ffffff !important; 
+        }
+
+        .bg-especial { 
+            background-color: #6f42c1 !important; 
+            color: #ffffff !important; 
+        }
     </style>
 </head>
 <body>
@@ -245,11 +293,14 @@
 
     <div class="actions no-capture">
         <button class="btn-generate" onclick="gerarEscala()">🚀 Gerar Escala</button>
-        <button class="btn-download" onclick="baixarEscala()">📥 Baixar Escala</button>
+        <button class="btn-download" onclick="baixarEscala()">💾 Salvar e Baixar Escala</button>
         <button class="btn-clear" onclick="limparTudo()">⚠️ Limpar Tudo</button>
     </div>
 
     <div id="escalaResultado">
+        <img src="" id="bgImagem" class="bg-imagem-depto" alt="">
+        <div class="glass-overlay"></div>
+
         <h2 id="tituloEscala" class="titulo-escala-gerada"></h2>
         <table id="tabelaEscala">
             <thead>
@@ -266,6 +317,18 @@
 </div>
 
 <script>
+    const imagensDepartamentos = {
+        "Técnicos de Som": "mesa-som.png",
+        "Escola Sabatina": "sabatina.png",
+        "Pregação": "pregacao.jpg",
+        "Louvor": "louvor.png",
+        "Recepção": "recepcao.jpg",
+        "Diáconos": "diacono.jpg",
+        "Limpeza": "limpeza.jpeg",
+        "Ministério Infantil": "infantil.jpg",
+        "Outros": "" // Pode deixar vazio ou uma imagem padrão
+    };
+
     /* ============================================================
        1. CONFIGURAÇÕES INICIAIS E VARIÁVEIS GLOBAIS
        ============================================================ */
@@ -275,17 +338,14 @@
 
     // Função executada ao abrir a página
     window.onload = () => {
+        // 1. Tema (Sempre primeiro para evitar "piscada" branca)
         if(localStorage.getItem('theme') === 'dark') document.body.classList.add('dark-mode');
-        const hoje = new Date();
-        document.getElementById('selecaoMes').value = hoje.toISOString().substring(0, 7);
-        preencherDatasPeloMes();
-        renderizarMembros('geral');
-        renderizarMembros('especial');
         
-        // Criação dinâmica dos cards de Segunda a Domingo
+        // 2. Criar os cards primeiro! (Para que eles existam no HTML)
         const containerDias = document.getElementById('diasSelecao');
+        containerDias.innerHTML = ""; // Limpa antes de preencher
         diasSemanaNome.forEach((dia, index) => {
-            const isDefault = [0,3,6].includes(index); // Padrão: Dom, Qua, Sáb marcados
+            const isDefault = [0,3,6].includes(index); 
             containerDias.innerHTML += `
                 <div class="day-card ${isDefault ? 'active' : ''}" id="card-${index}" onclick="toggleCard(${index})">
                     <span class="day-name">${dia}</span>
@@ -299,6 +359,34 @@
                 </div>
             `;
         });
+
+        // 3. Recuperar membros
+        renderizarMembros('geral');
+        renderizarMembros('especial');
+
+        // 4. Recuperar Configurações (Agora o verificarOutros vai funcionar)
+        const config = JSON.parse(localStorage.getItem('escala_config'));
+        if(config) {
+            document.getElementById('tipoEscala').value = config.tipoEscala;
+            document.getElementById('outroTipo').value = config.outroTipo;
+            document.getElementById('selecaoMes').value = config.selecaoMes;
+            document.getElementById('dataInicio').value = config.dataInicio;
+            document.getElementById('dataFim').value = config.dataFim;
+            verificarOutros(); // Agora os elementos esp-div-X já existem!
+        } else {
+            const hoje = new Date();
+            document.getElementById('selecaoMes').value = hoje.toISOString().substring(0, 7);
+            preencherDatasPeloMes();
+        }
+
+        // 5. Recuperar a Escala Gerada
+        const escalaHTML = localStorage.getItem('escala_salva_html');
+        const tituloSalvo = localStorage.getItem('escala_titulo_salvo');
+        if(escalaHTML && escalaHTML.trim() !== "") {
+            document.querySelector('#tabelaEscala tbody').innerHTML = escalaHTML;
+            document.getElementById('tituloEscala').innerText = tituloSalvo || "ESCALA";
+            document.getElementById('tituloEscala').style.display = "block";
+        }
     };
 
     /* ============================================================
@@ -351,8 +439,25 @@
        3. PERSISTÊNCIA E CONFIGURAÇÕES DE UI
        ============================================================ */
     function salvarDados() {
+        // Salva Membros
         localStorage.setItem('membros_geral', JSON.stringify(membrosGeral));
         localStorage.setItem('membros_especial', JSON.stringify(membrosEspecial));
+
+        // Salva Configurações do Formulário
+        const configuracoes = {
+            tipoEscala: document.getElementById('tipoEscala').value,
+            outroTipo: document.getElementById('outroTipo').value,
+            selecaoMes: document.getElementById('selecaoMes').value,
+            dataInicio: document.getElementById('dataInicio').value,
+            dataFim: document.getElementById('dataFim').value
+        };
+        localStorage.setItem('escala_config', JSON.stringify(configuracoes));
+
+        // Salva a Escala Gerada (o HTML da tabela)
+        const corpoTabela = document.querySelector('#tabelaEscala tbody').innerHTML;
+        const tituloEscala = document.getElementById('tituloEscala').innerText;
+        localStorage.setItem('escala_salva_html', corpoTabela);
+        localStorage.setItem('escala_titulo_salvo', tituloEscala);
     }
 
     function verificarOutros() {
@@ -387,16 +492,28 @@
         if(membrosGeral.length === 0) return alert("Por favor, cadastre voluntários na equipe.");
         
         const deptoSelect = document.getElementById('tipoEscala');
-        const isLouvor = deptoSelect.value === 'Louvor';
+        const valorSelecionado = deptoSelect.value; // Ex: 'Louvor', 'Diáconos'...
+        const isLouvor = valorSelecionado === 'Louvor';
         let nomeFinal = deptoSelect.options[deptoSelect.selectedIndex].text;
         
-        if (deptoSelect.value === 'Outros') {
+        // --- NOVO: Lógica da Imagem de Fundo ---
+        const imgElement = document.getElementById('bgImagem');
+        if (imagensDepartamentos[valorSelecionado]) {
+            imgElement.src = imagensDepartamentos[valorSelecionado];
+            imgElement.style.display = "block";
+        } else {
+            imgElement.style.display = "none"; // Esconde se não houver imagem mapeada
+        }
+        // ---------------------------------------
+
+        if (valorSelecionado === 'Outros') {
             const outroNome = document.getElementById('outroTipo').value.trim();
             nomeFinal = outroNome ? "✨ " + outroNome : "Outros";
         }
 
         document.getElementById('tituloEscala').innerText = "ESCALA: " + nomeFinal;
         document.getElementById('tituloEscala').style.display = "block";
+        
         const tbody = document.querySelector('#tabelaEscala tbody');
         tbody.innerHTML = "";
 
@@ -405,20 +522,16 @@
         let dataAtual = new Date(document.getElementById('dataInicio').value + "T00:00:00");
         const dataFimObj = new Date(document.getElementById('dataFim').value + "T00:00:00");
 
-        // Loop dia a dia pelo período selecionado
         while (dataAtual <= dataFimObj) {
             const diaSemana = dataAtual.getDay();
             
-            // Se o dia da semana estiver marcado como ativo
             if (document.getElementById(`dia-${diaSemana}`).checked) {
                 const qtdCong = parseInt(document.getElementById(`qtd-${diaSemana}`).value) || 1;
                 const qtdEsp = isLouvor ? (parseInt(document.getElementById(`qtd-esp-${diaSemana}`).value) || 0) : 0;
 
-                // Filtra quem pode trabalhar neste dia
                 let aptosGeral = membrosGeral.filter(m => m.disponivel.includes(diaSemana));
                 let aptosEsp = membrosEspecial.filter(m => m.disponivel.includes(diaSemana));
 
-                // SORTEIO: Prioriza quem trabalhou menos vezes (equilíbrio)
                 let escolhidosCong = aptosGeral
                     .sort((a, b) => (contagemGeral[a.nome] || 0) - (contagemGeral[b.nome] || 0) || (Math.random() - 0.5))
                     .slice(0, qtdCong)
@@ -435,7 +548,6 @@
                         return m.nome;
                     }) : [];
 
-                // Criação da linha na tabela
                 const row = document.createElement('tr');
                 row.dataset.isLouvor = isLouvor;
                 row.innerHTML = `
@@ -454,6 +566,9 @@
             }
             dataAtual.setDate(dataAtual.getDate() + 1);
         }
+        
+        // Salva no LocalStorage para não perder ao recarregar
+        salvarDados();
     }
 
     /* ============================================================
@@ -481,25 +596,92 @@
     }
 
     async function baixarEscala() {
-        document.body.classList.add('capturando');
-        setTimeout(() => {
-            html2canvas(document.getElementById('escalaResultado'), { scale: 2, useCORS: true }).then(canvas => {
-                const link = document.createElement('a');
-                link.download = `Escala.png`;
-                link.href = canvas.toDataURL();
-                link.click();
-                document.body.classList.remove('capturando');
-            });
-        }, 100);
-    }
+        const depto = document.getElementById('tipoEscala').value;
+        const valorMes = document.getElementById('selecaoMes').value; // Ex: "2026-02"
+        
+        // --- NOVA LÓGICA DE FORMATAÇÃO DE MÊS ---
+        const mesesNomes = [
+            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+        ];
+        
+        let mesExibicao = valorMes; // Caso algo dê errado, ele mostra o original
+        if (valorMes.includes('-')) {
+            const [ano, mes] = valorMes.split('-');
+            const nomeMes = mesesNomes[parseInt(mes) - 1];
+            mesExibicao = `${nomeMes} de ${ano}`;
+        }
+        // ----------------------------------------
+        const nomeImg = imagensDepartamentos[depto] || "sabatina.jpg";
+        
+        // 1. Cria a área de exportação temporária
+        const exportArea = document.createElement('div');
+        exportArea.id = 'escala-export';
+        exportArea.style.backgroundImage = `url('IMG/${nomeImg}')`;
 
-    function excluirLinha(btn) { if(confirm("Remover este dia?")) btn.closest('tr').remove(); }
-    
-    function limparTudo() { 
-        if(confirm("Isso apagará todos os membros cadastrados e a escala. Deseja continuar?")) { 
-            localStorage.clear(); 
-            location.reload(); 
-        } 
+        // 2. Clona as linhas da tabela (removendo a coluna de 'Ações' para a foto ficar limpa)
+        let linhasHtml = "";
+        document.querySelectorAll('#tabelaEscala tbody tr').forEach(tr => {
+        const tds = tr.querySelectorAll('td');
+        if(tds.length >= 3) {
+            // Pegamos o conteúdo da célula de nomes
+            const nomesConteudo = tds[2].innerHTML; 
+
+            linhasHtml += `
+                <tr>
+                    <td style="padding:12px; border-bottom:1px solid rgba(0,0,0,0.1); font-weight:bold; vertical-align: top;">
+                        ${tds[0].innerText}
+                    </td>
+                    <td style="padding:12px; border-bottom:1px solid rgba(0,0,0,0.1); vertical-align: top;">
+                        ${tds[1].innerText}
+                    </td>
+                    <td style="padding:12px; border-bottom:1px solid rgba(0,0,0,0.1); vertical-align: top;">
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            ${nomesConteudo}
+                        </div>
+                    </td>
+                </tr>`;
+        }
+    });
+
+        // 3. Monta o HTML do que será a imagem
+        exportArea.innerHTML = `
+            <div class="overlay-export">
+                <h1 style="text-align:center; margin:0; font-family: sans-serif;">ESCALA: ${depto.toUpperCase()}</h1>
+                <p style="text-align:center; color:#666; margin-bottom:20px; font-family: sans-serif;">Mês de Referência: ${mesExibicao}</p>
+                <table style="width:100%; border-collapse: collapse; font-family: sans-serif;">
+                    <thead>
+                        <tr style="background:#002e5d; color:white;">
+                            <th style="padding:12px; text-align:left;">Data</th>
+                            <th style="padding:12px; text-align:left;">Dia</th>
+                            <th style="padding:12px; text-align:left;">Responsáveis</th>
+                        </tr>
+                    </thead>
+                    <tbody>${linhasHtml}</tbody>
+                </table>
+                <div style="margin-top:30px; text-align:center; font-family: sans-serif; font-size:12px; font-weight:bold; border-top: 1px solid #ccc; padding-top: 10px;">
+                    IGREJA ADVENTISTA DO SÉTIMO DIA - BOA VISTA
+                </div>
+            </div>`;
+
+        document.body.appendChild(exportArea);
+
+        // 4. Aguarda um pouco para a imagem carregar e tira o print
+        setTimeout(() => {
+            html2canvas(exportArea, { 
+                scale: 2, 
+                useCORS: true, 
+                allowTaint: true 
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `Escala_${depto}.png`;
+                link.href = canvas.toDataURL("image/png");
+                link.click();
+                
+                // 5. Remove a área temporária
+                document.body.removeChild(exportArea);
+            });
+        }, 600);
     }
 </script>
 </body>
