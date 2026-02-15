@@ -371,6 +371,35 @@
     </div>
 </div>
 
+<!-- Modal de Edição de Nomes -->
+<div id="modalEdicao" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+    <div style="background: var(--white); padding: 30px; border-radius: 20px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
+        <h3 style="margin: 0 0 20px 0; color: var(--primary); font-size: 1.3em;">Editar Responsáveis</h3>
+        
+        <div style="margin-bottom: 15px;">
+            <strong style="color: var(--text);">Data:</strong> <span id="modalData" style="color: #666;"></span>
+        </div>
+        
+        <div id="modalNomesAtuais" style="margin-bottom: 20px;">
+            <h4 style="margin: 0 0 10px 0; color: var(--text); font-size: 0.9em;">Nomes Atuais:</h4>
+            <div id="listaNomesAtuais" style="display: flex; flex-direction: column; gap: 8px;"></div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <h4 style="margin: 0 0 10px 0; color: var(--text); font-size: 0.9em;">Adicionar Voluntário:</h4>
+            <select id="selectVoluntarios" style="width: 100%; padding: 10px; border: 2px solid var(--border); border-radius: 10px; margin-bottom: 10px;">
+                <option value="">Selecione um voluntário...</option>
+            </select>
+            <button onclick="adicionarVoluntarioModal()" style="width: 100%; padding: 10px; background: var(--primary); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold;">+ Adicionar</button>
+        </div>
+        
+        <div style="display: flex; gap: 10px;">
+            <button onclick="salvarEdicaoModal()" style="flex: 1; padding: 12px; background: var(--success); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold;">✅ Salvar</button>
+            <button onclick="fecharModalEdicao()" style="flex: 1; padding: 12px; background: var(--danger); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold;">❌ Cancelar</button>
+        </div>
+    </div>
+</div>
+
 <script>
     const imagensDepartamentos = {
         "Técnicos de Som": "mesa-som.png",
@@ -391,6 +420,11 @@
     const diasSemanaNome = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     let membrosGeral = JSON.parse(localStorage.getItem('membros_geral')) || [];
     let membrosEspecial = JSON.parse(localStorage.getItem('membros_especial')) || [];
+    
+    // Variáveis para o modal de edição
+    let linhaEditando = null;
+    let nomesAtuaisModal = [];
+    let tipoEscalaAtual = '';
 
     // Função executada ao abrir a página
     window.onload = () => {
@@ -635,22 +669,145 @@
     function editarLinha(btn) {
         const row = btn.closest('tr');
         const td = row.querySelector('.nomes-td');
+        const dataCell = row.querySelector('td:first-child');
+        const diaCell = row.querySelector('td:nth-child(2)');
+        
+        // Configurar variáveis do modal
+        linhaEditando = row;
+        tipoEscalaAtual = document.getElementById('tipoEscala').value;
+        nomesAtuaisModal = [];
+        
+        // Extrair nomes atuais
         if (row.dataset.isLouvor === "true") {
-            const congAtual = td.querySelector('.cong-txt .val')?.innerText || "";
-            const espAtual = td.querySelector('.esp-txt .val')?.innerText || "";
-            const novoCong = prompt("Editar Congregacional:", congAtual);
-            if (novoCong !== null) {
-                td.querySelector('.cong-txt .val').innerText = novoCong;
-                const divEsp = td.querySelector('.esp-txt .val');
-                if(divEsp) {
-                    const novoEsp = prompt("Editar Especial:", espAtual);
-                    if(novoEsp !== null) divEsp.innerText = novoEsp;
-                }
+            // Para Louvor, extrair congregacional e especial separadamente
+            const congElement = td.querySelector('.cong-txt .val');
+            const espElement = td.querySelector('.esp-txt .val');
+            
+            if (congElement) {
+                const congNomes = congElement.innerText.split(',').filter(n => n.trim() && n.trim() !== '---');
+                nomesAtuaisModal = nomesAtuaisModal.concat(congNomes.map(n => ({ nome: n.trim(), tipo: 'congregacional' })));
+            }
+            if (espElement) {
+                const espNomes = espElement.innerText.split(',').filter(n => n.trim() && n.trim() !== '---');
+                nomesAtuaisModal = nomesAtuaisModal.concat(espNomes.map(n => ({ nome: n.trim(), tipo: 'especial' })));
             }
         } else {
-            const novo = prompt("Ajustar voluntários:", td.innerText);
-            if (novo !== null) td.innerText = novo;
+            // Para outros departamentos
+            const nomesTexto = td.innerText.split(',').filter(n => n.trim() && n.trim() !== '---');
+            nomesAtuaisModal = nomesTexto.map(n => ({ nome: n.trim(), tipo: 'geral' }));
         }
+        
+        // Preencher informações do modal
+        document.getElementById('modalData').innerText = `${dataCell.innerText} (${diaCell.innerText})`;
+        
+        // Preencher lista de nomes atuais
+        atualizarListaNomesAtuais();
+        
+        // Preencher select de voluntários disponíveis
+        popularSelectVoluntarios();
+        
+        // Abrir modal
+        document.getElementById('modalEdicao').style.display = 'flex';
+    }
+    
+    function atualizarListaNomesAtuais() {
+        const container = document.getElementById('listaNomesAtuais');
+        container.innerHTML = '';
+        
+        if (nomesAtuaisModal.length === 0) {
+            container.innerHTML = '<div style="color: #999; font-style: italic;">Nenhum voluntário adicionado</div>';
+            return;
+        }
+        
+        nomesAtuaisModal.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--input-bg); border-radius: 8px; border: 1px solid var(--border);';
+            
+            const tipoLabel = item.tipo === 'congregacional' ? '🎤' : item.tipo === 'especial' ? '🌟' : '';
+            div.innerHTML = `
+                <span>${tipoLabel} ${item.nome}</span>
+                <button onclick="removerNomeModal(${index})" style="background: var(--danger); color: white; border: none; border-radius: 5px; padding: 4px 8px; cursor: pointer;">🗑️</button>
+            `;
+            container.appendChild(div);
+        });
+    }
+    
+    function popularSelectVoluntarios() {
+        const select = document.getElementById('selectVoluntarios');
+        select.innerHTML = '<option value="">Selecione um voluntário...</option>';
+        
+        let voluntariosDisponiveis = [];
+        
+        if (tipoEscalaAtual === 'Louvor') {
+            // Para Louvor, incluir ambos os grupos
+            voluntariosDisponiveis = [
+                ...membrosGeral.map(m => ({ nome: m.nome, tipo: 'congregacional' })),
+                ...membrosEspecial.map(m => ({ nome: m.nome, tipo: 'especial' }))
+            ];
+        } else {
+            // Para outros departamentos
+            voluntariosDisponiveis = membrosGeral.map(m => ({ nome: m.nome, tipo: 'geral' }));
+        }
+        
+        // Remover voluntários já adicionados
+        const nomesJaAdicionados = nomesAtuaisModal.map(item => item.nome);
+        voluntariosDisponiveis = voluntariosDisponiveis.filter(v => !nomesJaAdicionados.includes(v.nome));
+        
+        voluntariosDisponiveis.forEach(voluntario => {
+            const option = document.createElement('option');
+            const tipoLabel = voluntario.tipo === 'congregacional' ? '🎤' : voluntario.tipo === 'especial' ? '🌟' : '';
+            option.value = JSON.stringify(voluntario);
+            option.innerText = `${tipoLabel} ${voluntario.nome}`;
+            select.appendChild(option);
+        });
+    }
+    
+    function adicionarVoluntarioModal() {
+        const select = document.getElementById('selectVoluntarios');
+        if (select.value) {
+            const voluntario = JSON.parse(select.value);
+            nomesAtuaisModal.push(voluntario);
+            atualizarListaNomesAtuais();
+            popularSelectVoluntarios(); // Atualizar para remover da lista
+        }
+    }
+    
+    function removerNomeModal(index) {
+        nomesAtuaisModal.splice(index, 1);
+        atualizarListaNomesAtuais();
+        popularSelectVoluntarios(); // Atualizar para adicionar de volta à lista
+    }
+    
+    function salvarEdicaoModal() {
+        if (!linhaEditando) return;
+        
+        const td = linhaEditando.querySelector('.nomes-td');
+        
+        if (linhaEditando.dataset.isLouvor === "true") {
+            // Separar por tipo para Louvor
+            const congregacionais = nomesAtuaisModal.filter(n => n.tipo === 'congregacional').map(n => n.nome);
+            const especiais = nomesAtuaisModal.filter(n => n.tipo === 'especial').map(n => n.nome);
+            
+            td.innerHTML = `
+                <div class="cong-txt"><span class="badge-louvor bg-congregacional">Congregacional:</span> <span class="val">${congregacionais.join(', ') || '---'}</span></div>
+                ${especiais.length > 0 ? `<div class="esp-txt" style="margin-top:5px;"><span class="badge-louvor bg-especial">Especial:</span> <span class="val">${especiais.join(', ')}</span></div>` : ''}
+            `;
+        } else {
+            // Para outros departamentos
+            const nomes = nomesAtuaisModal.map(n => n.nome);
+            td.innerText = nomes.join(', ') || '---';
+        }
+        
+        // Salvar alterações
+        salvarDados();
+        fecharModalEdicao();
+    }
+    
+    function fecharModalEdicao() {
+        document.getElementById('modalEdicao').style.display = 'none';
+        linhaEditando = null;
+        nomesAtuaisModal = [];
+        tipoEscalaAtual = '';
     }
 
     async function baixarEscala() {
