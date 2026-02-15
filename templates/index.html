@@ -333,8 +333,11 @@
 
         <div id="divLouvorEspecial" style="display:none;">
             <div class="section-title">🌟 Equipe Louvor Especial</div>
+            <div class="legenda-dispo" style="background: #f3e8ff; border-color: #d8b4fe; color: #6b21a8;">
+                <div class="legenda-item"><strong>Observação:</strong> A equipe especial participa nos dias selecionados abaixo, complementando o louvor congregacional.</div>
+            </div>
             <div class="cadastro-membros">
-                <input type="text" id="novoNomeEsp" placeholder="Nome do voluntário...">
+                <input type="text" id="novoNomeEsp" placeholder="Nome do voluntário especial...">
                 <button onclick="adicionarMembro('especial')" style="width: 100px; border-radius: 10px; background: var(--secondary); color: white; border: none; font-weight: bold; cursor: pointer;">+ Add</button>
             </div>
             <div class="lista-membros" id="listaMembrosEspecial"></div>
@@ -487,26 +490,57 @@
         const idCampo = tipo === 'geral' ? 'novoNome' : 'novoNomeEsp';
         const input = document.getElementById(idCampo);
         const nome = input.value.trim();
-        if(!nome) return;
+        
+        if(!nome) {
+            input.style.borderColor = 'var(--danger)';
+            setTimeout(() => input.style.borderColor = 'var(--border)', 2000);
+            return;
+        }
+        
+        // Verificar se nome já existe no mesmo grupo
+        const array = tipo === 'geral' ? membrosGeral : membrosEspecial;
+        if(array.some(m => m.nome.toLowerCase() === nome.toLowerCase())) {
+            alert(`"${nome}" já está cadastrado na equipe ${tipo === 'geral' ? 'congregacional' : 'especial'}!`);
+            return;
+        }
+        
         const novo = { nome: nome, disponivel: [0,1,2,3,4,5,6] };
         if(tipo === 'geral') membrosGeral.push(novo);
         else membrosEspecial.push(novo);
+        
         input.value = "";
         salvarDados();
         renderizarMembros(tipo);
+        
+        // Feedback visual
+        input.style.borderColor = 'var(--success)';
+        setTimeout(() => input.style.borderColor = 'var(--border)', 1500);
     }
 
     function renderizarMembros(tipo) {
         const lista = document.getElementById(tipo === 'geral' ? 'listaMembrosGeral' : 'listaMembrosEspecial');
         const array = tipo === 'geral' ? membrosGeral : membrosEspecial;
-        lista.innerHTML = array.length ? "" : `<div style='text-align:center; color:#999; padding:10px; font-size:0.8em;'>Nenhum voluntário cadastrado.</div>`;
+        const isEspecial = tipo === 'especial';
+        
+        lista.innerHTML = array.length ? "" : `<div style='text-align:center; color:#999; padding:10px; font-size:0.8em;'>Nenhum voluntário ${isEspecial ? 'especial' : 'cadastrado'}.</div>`;
+        
         array.forEach((m, idx) => {
             let botoesDias = "";
             diasSemanaNome.forEach((dia, dIdx) => {
                 const ativo = m.disponivel.includes(dIdx);
                 botoesDias += `<button class="mini-dia-btn ${ativo ? 'active' : 'inactive'}" onclick="toggleDiaMembro('${tipo}', ${idx}, ${dIdx})">${dia[0]}</button>`;
             });
-            lista.innerHTML += `<div class="membro-item"><div class="membro-info"><span class="membro-nome">${m.nome}</span><div class="mini-dias">${botoesDias}</div></div><button onclick="removerMembro('${tipo}', ${idx})" style="border:none; background:none; cursor:pointer; color:var(--danger)">🗑️</button></div>`;
+            
+            const estiloCard = isEspecial ? 'background: linear-gradient(135deg, rgba(111, 66, 193, 0.1), rgba(111, 66, 193, 0.05)); border: 2px solid var(--secondary);' : '';
+            const estiloNome = isEspecial ? 'color: var(--secondary);' : '';
+            
+            lista.innerHTML += `<div class="membro-item" style="${estiloCard}">
+                <div class="membro-info">
+                    <span class="membro-nome" style="${estiloNome}">${isEspecial ? '🌟 ' : ''}${m.nome}</span>
+                    <div class="mini-dias">${botoesDias}</div>
+                </div>
+                <button onclick="removerMembro('${tipo}', ${idx})" style="border:none; background:none; cursor:pointer; color:var(--danger)">🗑️</button>
+            </div>`;
         });
     }
 
