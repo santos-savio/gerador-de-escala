@@ -733,7 +733,8 @@
                 allowTaint: true 
             }).then(canvas => {
                 const link = document.createElement('a');
-                link.download = `Escala_${depto}.png`;
+                const nomeArquivo = `Escala ${depto} - ${mesExibicao.replace(/[^a-zA-Z0-9]/g, ' ')}.png`;
+                link.download = nomeArquivo;
                 link.href = canvas.toDataURL("image/png");
                 link.click();
                 
