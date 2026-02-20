@@ -391,10 +391,9 @@
         
         <div style="margin-bottom: 20px;">
             <h4 style="margin: 0 0 10px 0; color: var(--text); font-size: 0.9em;">Adicionar Voluntário:</h4>
-            <select id="selectVoluntarios" style="width: 100%; padding: 10px; border: 2px solid var(--border); border-radius: 10px; margin-bottom: 10px;">
-                <option value="">Selecione um voluntário...</option>
+            <select id="selectVoluntarios" onchange="adicionarVoluntarioModal()" style="width: 100%; padding: 10px; border: 2px solid var(--border); border-radius: 10px;">
+                <option value="">Selecione um voluntário para adicionar...</option>
             </select>
-            <button onclick="adicionarVoluntarioModal()" style="width: 100%; padding: 10px; background: var(--primary); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold;">+ Adicionar</button>
         </div>
         
         <div style="display: flex; gap: 10px;">
@@ -804,6 +803,9 @@
             nomesAtuaisModal.push(voluntario);
             atualizarListaNomesAtuais();
             popularSelectVoluntarios(); // Atualizar para remover da lista
+            
+            // Resetar o select para a opção padrão
+            select.value = "";
         }
     }
     
