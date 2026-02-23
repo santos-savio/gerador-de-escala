@@ -19,8 +19,15 @@ app.register_blueprint(api_blueprint)
 @app.route('/')
 def index():
     if not current_user.is_authenticated:
-        return redirect(url_for('auth.login'))
+        # return redirect(url_for('auth.login'))
+        return render_template('index_loggedOut.html') 
     return render_template('index.html', user=current_user)
+
+# Rota para histórico de escalas
+@app.route('/history')
+@login_required
+def history():
+    return render_template('history.html', user=current_user)
 
 # Rota para servir as imagens da pasta IMG
 @app.route('/IMG/<filename>')
@@ -38,5 +45,5 @@ if __name__ == '__main__':
         print("AVISO: Pasta IMG não encontrada. As imagens não serão carregadas.")
     
     print("Servidor Flask iniciado!")
-    print("Acesse: http://localhost:5000")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    print("Acesse: http://localhost:5050")
+    app.run(debug=True, host='0.0.0.0', port=5050)
