@@ -1145,7 +1145,7 @@
         }
         // ----------------------------------------
         const nomeImg = imagensDepartamentos[depto] || "sabatina.jpg";
-        const nomeIgreja = document.getElementById('nomeIgreja').value || "IGREJA ADVENTISTA DO SÉTIMO DIA - BOA VISTA";
+        const nomeIgreja = "{{ current_user.church_name if current_user else 'IGREJA ADVENTISTA DO SÉTIMO DIA' }}";
         const nomeArquivo = `Escala ${depto} - ${mesExibicao.replace(/[^a-zA-Z0-9]/g, ' ')}.png`;
         
         // Coletar dados da escala para salvar no banco

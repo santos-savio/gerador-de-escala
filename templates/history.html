@@ -493,11 +493,7 @@
                     method: 'DELETE'
                 });
 
-                if (response.ok) {
-                    alert('Escala excluída com sucesso!');
-                    loadSchedules(); // Recarregar a lista
-                } else {
-                    const error = await response.json();
+                if (!response.ok) {
                     alert('Erro ao excluir escala: ' + (error.error || 'Tente novamente.'));
                 }
             } catch (error) {
