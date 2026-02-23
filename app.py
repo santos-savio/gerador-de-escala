@@ -1,12 +1,26 @@
-from flask import Flask, render_template, send_from_directory
+from flask import Flask, render_template, send_from_directory, redirect, url_for
+from flask_login import login_required, current_user
 import os
+from database import init_db
+from auth import auth as auth_blueprint
+from routes import api as api_blueprint
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
+
+# Inicializa banco de dados
+init_db(app)
+
+# Registra blueprints
+app.register_blueprint(auth_blueprint)
+app.register_blueprint(api_blueprint)
 
 # Rota principal que serve a página HTML
 @app.route('/')
 def index():
-    return render_template('index.html')
+    if not current_user.is_authenticated:
+        return redirect(url_for('auth.login'))
+    return render_template('index.html', user=current_user)
 
 # Rota para servir as imagens da pasta IMG
 @app.route('/IMG/<filename>')
