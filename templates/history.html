@@ -363,6 +363,13 @@
                 const periodEnd = new Date(schedule.period_end);
                 const formattedPeriod = `${periodStart.toLocaleDateString('pt-BR')} a ${periodEnd.toLocaleDateString('pt-BR')}`;
 
+                // Formatar mês/ano para o nome do arquivo (mesmo padrão do index)
+                const mesesNomes = [
+                    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+                    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+                ];
+                const mesExibicao = `${mesesNomes[periodStart.getMonth()]} de ${periodStart.getFullYear()}`;
+
                 return `
                     <div class="schedule-card">
                         <div class="schedule-header">
@@ -377,7 +384,7 @@
                             <button onclick="shareSchedule('${schedule.slug}', '${schedule.department}')" class="btn-action btn-share">
                                 📤 Compartilhar
                             </button>
-                            <button onclick="downloadSchedule('${schedule.id}')" class="btn-action btn-download">
+                            <button onclick="downloadSchedule('${schedule.id}', '${mesExibicao}')" class="btn-action btn-download">
                                 ⬇️ Baixar
                             </button>
                             <button onclick="deleteSchedule('${schedule.id}')" class="btn-action btn-delete">
@@ -396,14 +403,83 @@
             window.open(waUrl, '_blank');
         }
 
-        async function downloadSchedule(scheduleId) {
+        async function downloadSchedule(scheduleId, mesExibicao) {
             try {
-                // Aqui você pode implementar a lógica para baixar a imagem da escala
-                // Por enquanto, vamos apenas mostrar uma mensagem
-                alert('Função de download em desenvolvimento. Use a opção "Ver" para visualizar a escala.');
+                // Mostrar indicador de carregamento
+                const btn = event.target;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '⏳ Gerando...';
+                btn.disabled = true;
+
+                // Buscar o HTML da escala para download
+                const response = await fetch(`/api/schedules/${scheduleId}/download`);
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar escala');
+                }
+
+                const htmlContent = await response.text();
+
+                // Criar um iframe oculto para renderizar o HTML
+                const iframe = document.createElement('iframe');
+                iframe.style.position = 'absolute';
+                iframe.style.left = '-9999px';
+                iframe.style.width = '900px';
+                document.body.appendChild(iframe);
+
+                // Aguardar o iframe carregar
+                iframe.onload = async () => {
+                    try {
+                        // Usar html2canvas para capturar o conteúdo
+                        const canvas = await html2canvas(iframe.contentDocument.body, {
+                            width: 900,
+                            height: iframe.contentDocument.body.scrollHeight,
+                            scale: 2,
+                            useCORS: true,
+                            allowTaint: true
+                        });
+
+                        // Converter para blob e baixar
+                        canvas.toBlob((blob) => {
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            
+                            // Gerar nome de arquivo com mesma lógica do index
+                            const scheduleCard = btn.closest('.schedule-card');
+                            const department = scheduleCard.querySelector('.schedule-title').textContent;
+                            const nomeArquivo = `Escala ${department} - ${mesExibicao.replace(/[^a-zA-Z0-9]/g, ' ')}.png`;
+                            a.download = nomeArquivo;
+                            
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+
+                            // Remover iframe e restaurar botão
+                            document.body.removeChild(iframe);
+                            btn.innerHTML = originalText;
+                            btn.disabled = false;
+                        }, 'image/png');
+                    } catch (error) {
+                        console.error('Erro ao gerar imagem:', error);
+                        document.body.removeChild(iframe);
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        alert('Erro ao gerar imagem. Tente novamente.');
+                    }
+                };
+
+                // Carregar o HTML no iframe
+                iframe.srcdoc = htmlContent;
+
             } catch (error) {
                 console.error('Erro ao baixar escala:', error);
                 alert('Erro ao baixar escala. Tente novamente.');
+                
+                // Restaurar botão
+                const btn = event.target;
+                btn.innerHTML = '⬇️ Baixar';
+                btn.disabled = false;
             }
         }
 

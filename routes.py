@@ -148,6 +148,30 @@ def delete_schedule(schedule_id):
 
 # ==================== ROTA PÚBLICA ====================
 
+@api.route('/api/schedules/<int:schedule_id>/download', methods=['GET'])
+@login_required
+def download_schedule(schedule_id):
+    """Gera e baixa a escala como imagem"""
+    schedule = Schedule.query.filter_by(id=schedule_id, user_id=current_user.id).first()
+    
+    if not schedule:
+        return jsonify({'error': 'Escala não encontrada'}), 404
+    
+    # Busca nome da igreja
+    church_name = schedule.user.church_name
+    
+    # Dados da escala
+    schedule_data = json.loads(schedule.data)
+    
+    # Renderiza o template HTML para captura
+    html_content = render_template('escala_download.html',
+        schedule=schedule,
+        schedule_data=schedule_data,
+        church_name=church_name
+    )
+    
+    return html_content
+
 @api.route('/escala/<slug>')
 def view_schedule(slug):
     """Visualização pública da escala com OG tags"""
