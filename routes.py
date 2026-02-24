@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, render_template
 from flask_login import login_required, current_user
 from database import db
 from models import Volunteer, Schedule
-from utils import generate_unique_slug
+from utils import generate_unique_slug, generate_og_image, get_og_image_path
 from datetime import datetime
 import json
 
@@ -103,7 +103,7 @@ def get_schedules():
 @api.route('/api/schedules', methods=['POST'])
 @login_required
 def create_schedule():
-    """Cria uma nova escala"""
+    """Cria uma nova escala e gera a imagem OG"""
     data = request.get_json()
     
     if not data.get('department') or not data.get('period_start') or not data.get('period_end'):
@@ -126,9 +126,26 @@ def create_schedule():
     db.session.add(schedule)
     db.session.commit()
     
+    # Gerar imagem OG
+    try:
+        # Renderizar HTML para OG image
+        html_content = render_template('escala_download.html',
+            schedule=schedule,
+            schedule_data=data.get('data', {}),
+            church_name=current_user.church_name
+        )
+        
+        # Gerar a imagem
+        og_image_path = generate_og_image(html_content, slug)
+        
+    except Exception as e:
+        print(f"Erro ao gerar imagem OG: {e}")
+        og_image_path = None
+    
     return jsonify({
         'id': schedule.id,
         'slug': schedule.slug,
+        'og_image': og_image_path,
         'message': 'Escala salva com sucesso'
     }), 201
 
@@ -183,20 +200,23 @@ def view_schedule(slug):
     # Dados da escala
     schedule_data = json.loads(schedule.data)
     
-    # Imagem do departamento para OG
-    dept_images = {
-        'mesa-som': 'mesa-som.png',
-        'sabatina': 'sabatina.png',
-        'pregacao': 'pregacao.jpg',
-        'louvor': 'louvor.png',
-        'recepcao': 'recepcao.jpg',
-        'diácono': 'diacono.jpg',
-        'limpeza': 'limpeza.jpeg',
-        'infantil': 'infantil.jpg'
-    }
+    # Tentar usar imagem OG dinâmica gerada
+    og_image = get_og_image_path(slug)
     
-    dept_key = schedule.department.lower().replace(' ', '-').replace('á', 'a')
-    og_image = f"/IMG/{dept_images.get(dept_key, 'louvor.png')}"
+    # Fallback: imagem estática do departamento
+    if not og_image:
+        dept_images = {
+            'mesa-som': 'mesa-som.png',
+            'sabatina': 'sabatina.png',
+            'pregacao': 'pregacao.jpg',
+            'louvor': 'louvor.png',
+            'recepcao': 'recepcao.jpg',
+            'diácono': 'diacono.jpg',
+            'limpeza': 'limpeza.jpeg',
+            'infantil': 'infantil.jpg'
+        }
+        dept_key = schedule.department.lower().replace(' ', '-').replace('á', 'a')
+        og_image = f"/IMG/{dept_images.get(dept_key, 'louvor.png')}"
     
     return render_template('escala_publica.html',
         schedule=schedule,

@@ -494,8 +494,10 @@
                 });
 
                 if (!response.ok) {
-                    alert('Erro ao excluir escala: ' + (error.error || 'Tente novamente.'));
+                    console.error('Erro ao excluir escala:', response);
+                    alert('Erro ao excluir escala. Tente novamente.');
                 }
+                loadSchedules();
             } catch (error) {
                 console.error('Erro ao excluir escala:', error);
                 alert('Erro ao excluir escala. Tente novamente.');
