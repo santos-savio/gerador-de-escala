@@ -1,12 +1,34 @@
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, send_file
 from flask_login import login_required, current_user
 from database import db
 from models import Volunteer, Schedule
-from utils import generate_unique_slug, generate_og_image, get_og_image_path
+from utils import generate_unique_slug, generate_og_image, get_og_image_path, get_og_image_file_path, delete_og_image
 from datetime import datetime
 import json
 
 api = Blueprint('api', __name__)
+
+
+def render_schedule_download_html(schedule):
+    """Renderiza o HTML base da escala para geração de imagem."""
+    schedule_data = json.loads(schedule.data)
+    church_name = schedule.user.church_name
+    return render_template(
+        'escala_download.html',
+        schedule=schedule,
+        schedule_data=schedule_data,
+        church_name=church_name
+    )
+
+
+def ensure_schedule_image(schedule):
+    """Garante que a imagem da escala existe e retorna o caminho relativo."""
+    existing_image = get_og_image_path(schedule.slug)
+    if existing_image:
+        return existing_image
+
+    html_content = render_schedule_download_html(schedule)
+    return generate_og_image(html_content, schedule.slug)
 
 # ==================== VOLUNTÁRIOS ====================
 
@@ -128,15 +150,7 @@ def create_schedule():
     
     # Gerar imagem OG
     try:
-        # Renderizar HTML para OG image
-        html_content = render_template('escala_download.html',
-            schedule=schedule,
-            schedule_data=data.get('data', {}),
-            church_name=current_user.church_name
-        )
-        
-        # Gerar a imagem
-        og_image_path = generate_og_image(html_content, slug)
+        og_image_path = ensure_schedule_image(schedule)
         
     except Exception as e:
         print(f"Erro ao gerar imagem OG: {e}")
@@ -157,6 +171,9 @@ def delete_schedule(schedule_id):
     
     if not schedule:
         return jsonify({'error': 'Escala não encontrada'}), 404
+
+    # Remove imagem OG vinculada à escala (se existir)
+    delete_og_image(schedule.slug)
     
     db.session.delete(schedule)
     db.session.commit()
@@ -168,26 +185,21 @@ def delete_schedule(schedule_id):
 @api.route('/api/schedules/<int:schedule_id>/download', methods=['GET'])
 @login_required
 def download_schedule(schedule_id):
-    """Gera e baixa a escala como imagem"""
+    """Gera (se necessário) e baixa a escala como imagem"""
     schedule = Schedule.query.filter_by(id=schedule_id, user_id=current_user.id).first()
     
     if not schedule:
         return jsonify({'error': 'Escala não encontrada'}), 404
-    
-    # Busca nome da igreja
-    church_name = schedule.user.church_name
-    
-    # Dados da escala
-    schedule_data = json.loads(schedule.data)
-    
-    # Renderiza o template HTML para captura
-    html_content = render_template('escala_download.html',
-        schedule=schedule,
-        schedule_data=schedule_data,
-        church_name=church_name
+
+    ensure_schedule_image(schedule)
+    image_path = get_og_image_file_path(schedule.slug)
+
+    return send_file(
+        image_path,
+        mimetype='image/png',
+        as_attachment=True,
+        download_name=f"escala-{schedule.slug}.png"
     )
-    
-    return html_content
 
 @api.route('/escala/<slug>')
 def view_schedule(slug):
@@ -200,8 +212,16 @@ def view_schedule(slug):
     # Dados da escala
     schedule_data = json.loads(schedule.data)
     
-    # Tentar usar imagem OG dinâmica gerada
+    # Tentar usar imagem OG dinâmica já existente
     og_image = get_og_image_path(slug)
+
+    # Se não existir, gerar sob demanda (sem recriar se já existir em disco)
+    if not og_image:
+        try:
+            og_image = ensure_schedule_image(schedule)
+        except Exception as e:
+            print(f"Erro ao gerar imagem OG da escala pública: {e}")
+            og_image = None
     
     # Fallback: imagem estática do departamento
     if not og_image:

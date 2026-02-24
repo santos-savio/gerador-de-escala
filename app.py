@@ -34,6 +34,11 @@ def history():
 def serve_image(filename):
     return send_from_directory('IMG', filename)
 
+
+@app.route('/ogImagesEscalas/<filename>')
+def serve_og_image(filename):
+    return send_from_directory(os.path.join('public', 'ogImagesEscalas'), filename)
+
 # Rota para favicon (evita erro 404)
 @app.route('/favicon.ico')
 def favicon():

@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Histórico de Escalas - Gerador de Escalas</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
             --bg: #ffffff;
@@ -411,66 +410,31 @@
                 btn.innerHTML = '⏳ Gerando...';
                 btn.disabled = true;
 
-                // Buscar o HTML da escala para download
+                // Baixar a imagem gerada no backend
                 const response = await fetch(`/api/schedules/${scheduleId}/download`);
                 if (!response.ok) {
                     throw new Error('Erro ao carregar escala');
                 }
 
-                const htmlContent = await response.text();
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
 
-                // Criar um iframe oculto para renderizar o HTML
-                const iframe = document.createElement('iframe');
-                iframe.style.position = 'absolute';
-                iframe.style.left = '-9999px';
-                iframe.style.width = '900px';
-                document.body.appendChild(iframe);
+                // Gerar nome de arquivo com mesma lógica do index
+                const scheduleCard = btn.closest('.schedule-card');
+                const department = scheduleCard.querySelector('.schedule-title').textContent;
+                const nomeArquivo = `Escala ${department} - ${mesExibicao.replace(/[^a-zA-Z0-9]/g, ' ')}.png`;
+                a.download = nomeArquivo;
 
-                // Aguardar o iframe carregar
-                iframe.onload = async () => {
-                    try {
-                        // Usar html2canvas para capturar o conteúdo
-                        const canvas = await html2canvas(iframe.contentDocument.body, {
-                            width: 900,
-                            height: iframe.contentDocument.body.scrollHeight,
-                            scale: 2,
-                            useCORS: true,
-                            allowTaint: true
-                        });
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
 
-                        // Converter para blob e baixar
-                        canvas.toBlob((blob) => {
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            
-                            // Gerar nome de arquivo com mesma lógica do index
-                            const scheduleCard = btn.closest('.schedule-card');
-                            const department = scheduleCard.querySelector('.schedule-title').textContent;
-                            const nomeArquivo = `Escala ${department} - ${mesExibicao.replace(/[^a-zA-Z0-9]/g, ' ')}.png`;
-                            a.download = nomeArquivo;
-                            
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            URL.revokeObjectURL(url);
-
-                            // Remover iframe e restaurar botão
-                            document.body.removeChild(iframe);
-                            btn.innerHTML = originalText;
-                            btn.disabled = false;
-                        }, 'image/png');
-                    } catch (error) {
-                        console.error('Erro ao gerar imagem:', error);
-                        document.body.removeChild(iframe);
-                        btn.innerHTML = originalText;
-                        btn.disabled = false;
-                        alert('Erro ao gerar imagem. Tente novamente.');
-                    }
-                };
-
-                // Carregar o HTML no iframe
-                iframe.srcdoc = htmlContent;
+                // Restaurar botão
+                btn.innerHTML = originalText;
+                btn.disabled = false;
 
             } catch (error) {
                 console.error('Erro ao baixar escala:', error);
