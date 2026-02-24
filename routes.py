@@ -201,6 +201,17 @@ def download_schedule(schedule_id):
         download_name=f"escala-{schedule.slug}.png"
     )
 
+
+@api.route('/escala/<slug>/og-image.png')
+def schedule_og_image(slug):
+    """Retorna a imagem OG da escala por slug, gerando sob demanda quando necessário."""
+    schedule = Schedule.query.filter_by(slug=slug).first_or_404()
+
+    ensure_schedule_image(schedule)
+    image_path = get_og_image_file_path(slug)
+
+    return send_file(image_path, mimetype='image/png')
+
 @api.route('/escala/<slug>')
 def view_schedule(slug):
     """Visualização pública da escala com OG tags"""
@@ -212,31 +223,7 @@ def view_schedule(slug):
     # Dados da escala
     schedule_data = json.loads(schedule.data)
     
-    # Tentar usar imagem OG dinâmica já existente
-    og_image = get_og_image_path(slug)
-
-    # Se não existir, gerar sob demanda (sem recriar se já existir em disco)
-    if not og_image:
-        try:
-            og_image = ensure_schedule_image(schedule)
-        except Exception as e:
-            print(f"Erro ao gerar imagem OG da escala pública: {e}")
-            og_image = None
-    
-    # Fallback: imagem estática do departamento
-    if not og_image:
-        dept_images = {
-            'mesa-som': 'mesa-som.png',
-            'sabatina': 'sabatina.png',
-            'pregacao': 'pregacao.jpg',
-            'louvor': 'louvor.png',
-            'recepcao': 'recepcao.jpg',
-            'diácono': 'diacono.jpg',
-            'limpeza': 'limpeza.jpeg',
-            'infantil': 'infantil.jpg'
-        }
-        dept_key = schedule.department.lower().replace(' ', '-').replace('á', 'a')
-        og_image = f"/IMG/{dept_images.get(dept_key, 'louvor.png')}"
+    og_image = f"/escala/{slug}/og-image.png"
     
     return render_template('escala_publica.html',
         schedule=schedule,
