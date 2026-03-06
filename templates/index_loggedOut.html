@@ -282,6 +282,36 @@
             box-sizing: border-box;
         }
 
+        #modalCompartilhar {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1100;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+
+        #modalLoginRequerido {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1100;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+
         .modal-save-card {
             background: var(--white);
             color: var(--text);
@@ -318,6 +348,8 @@
         .btn-whatsapp { background: #25d366; color: #ffffff; }
         .btn-download-modal { background: var(--secondary); color: #ffffff; }
         .btn-close-modal { background: #e2e8f0; color: #334155; }
+        .btn-login { background: var(--success); color: #ffffff; }
+        .btn-continue-offline { background: var(--primary); color: #ffffff; }
 
         body.dark-mode .btn-close-modal {
             background: #475569;
@@ -424,10 +456,10 @@
 
     <div class="actions no-capture">
         <button class="btn-generate" onclick="gerarEscala()">🚀 Gerar Escala</button>
-        <button class="btn-save" onclick="mostrarLoginParaSalvar()" >💾 Salvar na lista
+        <button class="btn-save" onclick="salvarEscalaLista()">💾 Salvar na lista
             <span style="margin-left: 5px; color: var(--text); font-size: 0.9em;">(Login exigido)</span>
         </button>
-        <button class="btn-share" onclick="mostrarLoginParaSalvar()" >📤 Compartilhar escala
+        <button class="btn-share" onclick="compartilharEscala()">📤 Compartilhar escala
             <span style="margin-left: 5px; color: var(--text); font-size: 0.9em;">(Login exigido)</span>
         </button>
     </div>
@@ -494,6 +526,36 @@
     </div>
 </div>
 
+<!-- Modal de Compartilhamento -->
+<div id="modalCompartilhar">
+    <div class="modal-save-card">
+        <h3 style="margin: 0 0 15px 0; color: var(--primary);" class="modal-title">📤 Compartilhar Escala</h3>
+        <p style="margin: 0 0 20px 0; font-size: 0.95em; color: var(--text); line-height: 1.4;">
+            Escolha como deseja compartilhar a escala:
+        </p>
+        <div class="modal-save-actions">
+            <button class="modal-save-btn btn-download-modal" onclick="baixarEscalaImagemDireto()">⬇️ Baixar Imagem</button>
+            <button class="modal-save-btn btn-whatsapp" onclick="tentarCompartilharLink()">🔗 Compartilhar Link</button>
+            <button class="modal-save-btn btn-close-modal" onclick="fecharModalCompartilhar()">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Login Requerido -->
+<div id="modalLoginRequerido">
+    <div class="modal-save-card">
+        <h3 style="margin: 0 0 15px 0; color: var(--primary);" class="modal-title">🔐 Login Necessário</h3>
+        <p style="margin: 0 0 20px 0; font-size: 0.95em; color: var(--text); line-height: 1.4;">
+            Para acessar a funcionalidade de <strong>histórico de escalas</strong> e <strong>compartilhamento de links</strong>, 
+            você precisa fazer login. Deseja continuar?
+        </p>
+        <div class="modal-save-actions">
+            <button class="modal-save-btn btn-login" onclick="fazerLogin()">🔑 Fazer Login</button>
+            <button class="modal-save-btn btn-continue-offline" onclick="continuarDeslogado()">🔄 Continuar Deslogado</button>
+        </div>
+    </div>
+</div>
+
 <script>
     const imagensDepartamentos = {
         "Técnicos de Som": "mesa-som.png",
@@ -523,6 +585,102 @@
     let ultimaImagemEscala = '';
     let ultimoNomeArquivoEscala = '';
     let ultimaMensagemWhatsApp = '';
+
+    /* ============================================================
+       FUNÇÕES DO MODAL DE LOGIN (declaradas no início para evitar ReferenceError)
+       ============================================================ */
+    function salvarDadosEscalaParaRecuperar() {
+        const linhas = document.querySelectorAll('#tabelaEscala tbody tr');
+        if (linhas.length === 0) return null;
+
+        const depto = document.getElementById('tipoEscala').value;
+        const valorMes = document.getElementById('selecaoMes').value;
+        const dataInicio = document.getElementById('dataInicio').value;
+        const dataFim = document.getElementById('dataFim').value;
+        
+        // Formatar mês para exibição
+        const mesesNomes = [
+            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+        ];
+        
+        let mesExibicao = valorMes;
+        if (valorMes.includes('-')) {
+            const [ano, mes] = valorMes.split('-');
+            const nomeMes = mesesNomes[parseInt(mes) - 1];
+            mesExibicao = `${nomeMes} de ${ano}`;
+        }
+        
+        // Coletar dados da escala
+        const escalaDados = { days: [] };
+        linhas.forEach(tr => {
+            const tds = tr.querySelectorAll('td');
+            if(tds.length >= 3) {
+                escalaDados.days.push({
+                    date: tds[0].innerText,
+                    name: tds[1].innerText,
+                    volunteers: tds[2].innerText.split(',').map(v => v.trim()).filter(v => v && v !== '---')
+                });
+            }
+        });
+        
+        const dadosParaSalvar = {
+            depto,
+            dataInicio,
+            dataFim,
+            mesExibicao,
+            escalaDados,
+            timestamp: new Date().toISOString()
+        };
+        
+        // Salvar no localStorage
+        localStorage.setItem('escalaPendenteLogin', JSON.stringify(dadosParaSalvar));
+        return dadosParaSalvar;
+    }
+    
+    function mostrarModalLogin(tipoAcao) {
+        // Salvar dados atuais antes de mostrar o modal
+        salvarDadosEscalaParaRecuperar();
+        
+        // Definir tipo de ação para usar após o login
+        localStorage.setItem('acaoPendenteLogin', tipoAcao);
+        
+        // Mostrar modal
+        document.getElementById('modalLoginRequerido').style.display = 'flex';
+    }
+    
+    function fazerLogin() {
+        // Redirecionar para página de login
+        window.location.href = '/login';
+    }
+    
+    function continuarDeslogado() {
+        // Fechar modal
+        document.getElementById('modalLoginRequerido').style.display = 'none';
+        
+        const acaoPendente = localStorage.getItem('acaoPendenteLogin');
+        
+        if (acaoPendente === 'salvar') {
+            // Apenas informar que não foi salvo
+            // alert('Para salvar a escala no histórico, você precisa fazer login. A escala foi gerada e pode ser baixada.');
+        } else if (acaoPendente === 'compartilhar') {
+            // Permitir download da imagem
+            baixarEscalaImagem();
+        }
+        
+        // Limpar ação pendente
+        localStorage.removeItem('acaoPendenteLogin');
+    }
+    
+    function fecharModalLogin() {
+        document.getElementById('modalLoginRequerido').style.display = 'none';
+        localStorage.removeItem('acaoPendenteLogin');
+    }
+    
+    function mostrarLoginParaSalvar() {
+        // Manter para compatibilidade, mas usar novo modal
+        mostrarModalLogin('salvar');
+    }
 
     // Função executada ao abrir a página
     window.onload = () => {
@@ -935,18 +1093,50 @@
         fecharModalEdicao();
     }
 
+    function mostrarLoginParaSalvar() {
+        // Manter para compatibilidade, mas usar novo modal
+        mostrarModalLogin('salvar');
+    }
+    
+    function abrirModalCompartilhar() {
+        const linhas = document.querySelectorAll('#tabelaEscala tbody tr');
+        if (linhas.length === 0) {
+            alert('Gere a escala antes de compartilhar.');
+            return;
+        }
+        document.getElementById('modalCompartilhar').style.display = 'flex';
+    }
+    
+    function fecharModalCompartilhar() {
+        document.getElementById('modalCompartilhar').style.display = 'none';
+    }
+    
+    function baixarEscalaImagemDireto() {
+        // Fechar modal de compartilhamento
+        fecharModalCompartilhar();
+        
+        // Gerar e baixar a imagem
+        setTimeout(() => {
+            baixarEscala();
+        }, 100);
+    }
+    
+    function tentarCompartilharLink() {
+        // Fechar modal de compartilhamento
+        fecharModalCompartilhar();
+        
+        // Salvar dados e mostrar modal de login
+        setTimeout(() => {
+            mostrarModalLogin('compartilhar');
+        }, 100);
+    }
+
     async function salvarEscalaLista() {
-        mostrarLoginParaSalvar();
+        mostrarModalLogin('salvar');
     }
 
     async function compartilharEscala() {
-        mostrarLoginParaSalvar();
-    }
-
-    function mostrarLoginParaSalvar() {
-        alert('Faça login para salvar e compartilhar escalas!');
-        // Redirecionar para a página de login
-        window.location.href = '/login';
+        abrirModalCompartilhar();
     }
 
     async function baixarEscala() {
@@ -1061,7 +1251,7 @@
 
     function compartilharEscalaWhatsApp() {
         if (!ultimaMensagemWhatsApp) {
-            alert('O link da escala não está disponível para compartilhamento.');
+            // alert('O link da escala não está disponível para compartilhamento.');
             return;
         }
 
@@ -1071,7 +1261,7 @@
 
     function baixarEscalaImagem() {
         if (!ultimaImagemEscala) {
-            alert('A imagem da escala ainda não está disponível para download.');
+            // alert('A imagem da escala ainda não está disponível para download.');
             return;
         }
 
@@ -1079,97 +1269,6 @@
         link.download = ultimoNomeArquivoEscala || 'escala.png';
         link.href = ultimaImagemEscala;
         link.click();
-    }
-
-    async function baixarEscala() {
-        const depto = document.getElementById('tipoEscala').value;
-        const valorMes = document.getElementById('selecaoMes').value; // Ex: "2026-02"
-
-        // --- NOVA LÓGICA DE FORMATAÇÃO DE MÊS ---
-        const mesesNomes = [
-            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
-        ];
-
-        let mesExibicao = valorMes; // Caso algo dê errado, ele mostra o original
-        if (valorMes.includes('-')) {
-            const [ano, mes] = valorMes.split('-');
-            const nomeMes = mesesNomes[parseInt(mes) - 1];
-            mesExibicao = `${nomeMes} de ${ano}`;
-        }
-        // ----------------------------------------
-        const nomeImg = imagensDepartamentos[depto] || "sabatina.jpg";
-        const nomeIgreja = document.getElementById('nomeIgreja').value || "IGREJA ADVENTISTA DO SÉTIMO DIA - BOA VISTA";
-
-        // 1. Cria a área de exportação temporária
-        const exportArea = document.createElement('div');
-        exportArea.id = 'escala-export';
-        exportArea.style.backgroundImage = `url('/IMG/${nomeImg}')`;
-
-        // 2. Clona as linhas da tabela (removendo a coluna de 'Ações' para a foto ficar limpa)
-        let linhasHtml = "";
-        document.querySelectorAll('#tabelaEscala tbody tr').forEach(tr => {
-        const tds = tr.querySelectorAll('td');
-        if(tds.length >= 3) {
-            // Pegamos o conteúdo da célula de nomes
-            const nomesConteudo = tds[2].innerHTML; 
-
-            linhasHtml += `
-                <tr>
-                    <td style="padding:12px; border-bottom:1px solid rgba(0,0,0,0.1); font-weight:bold; vertical-align: top;">
-                        ${tds[0].innerText}
-                    </td>
-                    <td style="padding:12px; border-bottom:1px solid rgba(0,0,0,0.1); vertical-align: top;">
-                        ${tds[1].innerText}
-                    </td>
-                    <td style="padding:12px; border-bottom:1px solid rgba(0,0,0,0.1); vertical-align: top;">
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            ${nomesConteudo}
-                        </div>
-                    </td>
-                </tr>`;
-        }
-    });
-
-        // 3. Monta o HTML do que será a imagem
-        exportArea.innerHTML = `
-            <div class="overlay-export">
-                <h1 style="text-align:center; margin:0; font-family: sans-serif;">ESCALA: ${depto.toUpperCase()}</h1>
-                <p style="text-align:center; color:#666; margin-bottom:20px; font-family: sans-serif;">Mês de Referência: ${mesExibicao}</p>
-                <table style="width:100%; border-collapse: collapse; font-family: sans-serif;">
-                    <thead>
-                        <tr style="background:#002e5d; color:white;">
-                            <th style="padding:12px; text-align:left;">Data</th>
-                            <th style="padding:12px; text-align:left;">Dia</th>
-                            <th style="padding:12px; text-align:left;">Responsáveis</th>
-                        </tr>
-                    </thead>
-                    <tbody>${linhasHtml}</tbody>
-                </table>
-                <div style="margin-top:30px; text-align:center; font-family: sans-serif; font-size:12px; font-weight:bold; border-top: 1px solid #ccc; padding-top: 10px;">
-                    ${nomeIgreja.toUpperCase()}
-                </div>
-            </div>`;
-
-        document.body.appendChild(exportArea);
-
-        // 4. Aguarda um pouco para a imagem carregar e tira o print
-        setTimeout(() => {
-            html2canvas(exportArea, { 
-                scale: 2, 
-                useCORS: true, 
-                allowTaint: true 
-            }).then(canvas => {
-                const link = document.createElement('a');
-                const nomeArquivo = `Escala ${depto} - ${mesExibicao.replace(/[^a-zA-Z0-9]/g, ' ')}.png`;
-                link.download = nomeArquivo;
-                link.href = canvas.toDataURL("image/png");
-                link.click();
-                
-                // 5. Remove a área temporária
-                document.body.removeChild(exportArea);
-            });
-        }, 600);
     }
 </script>
 </body>

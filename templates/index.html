@@ -548,8 +548,57 @@
         tipoEscalaAtual = '';
     }
 
+    /* ============================================================
+       FUNÇÃO DE RECUPERAÇÃO DE DADOS PENDENTES DE LOGIN
+       ============================================================ */
+    function verificarDadosPendentesLogin() {
+        const escalaPendente = localStorage.getItem('escalaPendenteLogin');
+        const acaoPendente = localStorage.getItem('acaoPendenteLogin');
+        
+        if (escalaPendente && acaoPendente) {
+            const dados = JSON.parse(escalaPendente);
+            
+            // Perguntar ao usuário se deseja recuperar a escala
+            const confirmar = confirm(
+                `Detectamos uma escala gerada antes do login:\n\n` +
+                `Departamento: ${dados.depto}\n` +
+                `Período: ${dados.mesExibicao}\n\n` +
+                `Deseja recuperar e ${acaoPendente === 'salvar' ? 'salvar' : 'compartilhar'} esta escala agora?`
+            );
+            
+            if (confirmar) {
+                // Restaurar dados nos campos
+                document.getElementById('tipoEscala').value = dados.depto;
+                document.getElementById('selecaoMes').value = dados.dataInicio.substring(0, 7); // YYYY-MM
+                document.getElementById('dataInicio').value = dados.dataInicio;
+                document.getElementById('dataFim').value = dados.dataFim;
+                
+                // Gerar a escala automaticamente
+                setTimeout(async () => {
+                    await gerarEscala();
+                    
+                    // Executar a ação pendente após gerar
+                    setTimeout(async () => {
+                        if (acaoPendente === 'salvar') {
+                            await salvarEscalaLista();
+                        } else if (acaoPendente === 'compartilhar') {
+                            await compartilharEscala();
+                        }
+                    }, 1000);
+                }, 500);
+            }
+            
+            // Limpar dados pendentes
+            localStorage.removeItem('escalaPendenteLogin');
+            localStorage.removeItem('acaoPendenteLogin');
+        }
+    }
+
     // Função executada ao abrir a página
     window.onload = async () => {
+        // 0. Verificar se há dados pendentes de login
+        verificarDadosPendentesLogin();
+        
         // 1. Tema (Sempre primeiro para evitar "piscada" branca)
         if(localStorage.getItem('theme') === 'dark') document.body.classList.add('dark-mode');
         
