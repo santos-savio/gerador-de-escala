@@ -513,6 +513,41 @@
     let ultimoNomeArquivoEscala = '';
     let ultimaMensagemWhatsApp = '';
 
+    /* ============================================================
+       FUNÇÕES DO MODAL DE EDIÇÃO (declaradas no início para evitar ReferenceError)
+       ============================================================ */
+    function salvarEdicaoModal() {
+        if (!linhaEditando) return;
+        
+        const td = linhaEditando.querySelector('.nomes-td');
+        
+        if (linhaEditando.dataset.isLouvor === "true") {
+            // Separar por tipo para Louvor
+            const congregacionais = nomesAtuaisModal.filter(n => n.tipo === 'congregacional').map(n => n.nome);
+            const especiais = nomesAtuaisModal.filter(n => n.tipo === 'especial').map(n => n.nome);
+            
+            td.innerHTML = `
+                <div class="cong-txt"><span class="badge-louvor bg-congregacional">Congregacional:</span> <span class="val">${congregacionais.join(', ') || '---'}</span></div>
+                ${especiais.length > 0 ? `<div class="esp-txt" style="margin-top:5px;"><span class="badge-louvor bg-especial">Especial:</span> <span class="val">${especiais.join(', ')}</span></div>` : ''}
+            `;
+        } else {
+            // Para outros departamentos
+            const nomes = nomesAtuaisModal.map(n => n.nome);
+            td.innerText = nomes.join(', ') || '---';
+        }
+        
+        // Salvar alterações
+        salvarDados();
+        fecharModalEdicao();
+    }
+    
+    function fecharModalEdicao() {
+        document.getElementById('modalEdicao').style.display = 'none';
+        linhaEditando = null;
+        nomesAtuaisModal = [];
+        tipoEscalaAtual = '';
+    }
+
     // Função executada ao abrir a página
     window.onload = async () => {
         // 1. Tema (Sempre primeiro para evitar "piscada" branca)
@@ -995,38 +1030,6 @@
         nomesAtuaisModal.splice(index, 1);
         atualizarListaNomesAtuais();
         popularSelectVoluntarios(); // Atualizar para adicionar de volta à lista
-    }
-    
-    function salvarEdicaoModal() {
-        if (!linhaEditando) return;
-        
-        const td = linhaEditando.querySelector('.nomes-td');
-        
-        if (linhaEditando.dataset.isLouvor === "true") {
-            // Separar por tipo para Louvor
-            const congregacionais = nomesAtuaisModal.filter(n => n.tipo === 'congregacional').map(n => n.nome);
-            const especiais = nomesAtuaisModal.filter(n => n.tipo === 'especial').map(n => n.nome);
-            
-            td.innerHTML = `
-                <div class="cong-txt"><span class="badge-louvor bg-congregacional">Congregacional:</span> <span class="val">${congregacionais.join(', ') || '---'}</span></div>
-                ${especiais.length > 0 ? `<div class="esp-txt" style="margin-top:5px;"><span class="badge-louvor bg-especial">Especial:</span> <span class="val">${especiais.join(', ')}</span></div>` : ''}
-            `;
-        } else {
-            // Para outros departamentos
-            const nomes = nomesAtuaisModal.map(n => n.nome);
-            td.innerText = nomes.join(', ') || '---';
-        }
-        
-        // Salvar alterações
-        salvarDados();
-        fecharModalEdicao();
-    }
-    
-    function fecharModalEdicao() {
-        document.getElementById('modalEdicao').style.display = 'none';
-        linhaEditando = null;
-        nomesAtuaisModal = [];
-        tipoEscalaAtual = '';
     }
 
     function abrirModalSalvarEscala() {
