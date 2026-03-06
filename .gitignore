@@ -97,3 +97,4 @@ coverage.xml
 # Environments
 .env
 .venv
+public/ogImagesEscalas/
