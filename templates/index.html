@@ -573,18 +573,13 @@
                 document.getElementById('dataInicio').value = dados.dataInicio;
                 document.getElementById('dataFim').value = dados.dataFim;
                 
-                // Gerar a escala automaticamente
+                // Gerar a escala automaticamente (sem executar ação pendente)
                 setTimeout(async () => {
                     await gerarEscala();
                     
-                    // Executar a ação pendente após gerar
-                    setTimeout(async () => {
-                        if (acaoPendente === 'salvar') {
-                            await salvarEscalaLista();
-                        } else if (acaoPendente === 'compartilhar') {
-                            await compartilharEscala();
-                        }
-                    }, 1000);
+                    // Informar ao usuário que a escala foi recuperada
+                    const acaoTexto = acaoPendente === 'salvar' ? 'salvar' : 'compartilhar';
+                    alert(`Escala recuperada com sucesso! Agora você pode ${acaoTexto} usando os botões acima.`);
                 }, 500);
             }
             
