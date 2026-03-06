@@ -152,6 +152,25 @@
             color: #9ca3af;
             margin-top: 5px;
         }
+        
+        .error-message {
+            display: none;
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            background: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+        
+        .error-message.show {
+            display: block;
+        }
+        
+        .input-error {
+            border-color: #dc2626 !important;
+        }
     </style>
 </head>
 <body>
@@ -172,7 +191,9 @@
             {% endif %}
         {% endwith %}
         
-        <form method="POST" action="{{ url_for('auth.register') }}">
+        <div id="errorMessage" class="error-message"></div>
+        
+        <form method="POST" action="{{ url_for('auth.register') }}" id="registerForm">
             <div class="form-group">
                 <label for="church_name">Nome da Igreja</label>
                 <input type="text" id="church_name" name="church_name" required placeholder="Ex: Igreja Adventista Boa Vista">
@@ -201,5 +222,137 @@
             <p>Já tem uma conta? <a href="{{ url_for('auth.login') }}">Fazer login</a></p>
         </div>
     </div>
+    
+    <script>
+        const form = document.getElementById('registerForm');
+        const errorMessage = document.getElementById('errorMessage');
+        const churchNameInput = document.getElementById('church_name');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const confirmPasswordInput = document.getElementById('confirm_password');
+        
+        function showError(message, inputElement = null) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+            
+            // Remover classe de erro de todos os inputs
+            [churchNameInput, emailInput, passwordInput, confirmPasswordInput].forEach(input => {
+                input.classList.remove('input-error');
+            });
+            
+            // Adicionar classe de erro ao input específico
+            if (inputElement) {
+                inputElement.classList.add('input-error');
+                inputElement.focus();
+            }
+            
+            // Scroll suave para o topo para ver a mensagem
+            errorMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        
+        function hideError() {
+            errorMessage.classList.remove('show');
+            [churchNameInput, emailInput, passwordInput, confirmPasswordInput].forEach(input => {
+                input.classList.remove('input-error');
+            });
+        }
+        
+        // Validação em tempo real ao digitar
+        [churchNameInput, emailInput, passwordInput, confirmPasswordInput].forEach(input => {
+            input.addEventListener('input', hideError);
+        });
+        
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            hideError();
+            
+            const churchName = churchNameInput.value.trim();
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            const confirmPassword = confirmPasswordInput.value;
+            
+            // Validações no front-end
+            if (!churchName) {
+                showError('Por favor, informe o nome da igreja.', churchNameInput);
+                return;
+            }
+            
+            if (churchName.length < 3) {
+                showError('O nome da igreja deve ter pelo menos 3 caracteres.', churchNameInput);
+                return;
+            }
+            
+            if (!email) {
+                showError('Por favor, informe o email.', emailInput);
+                return;
+            }
+            
+            // Validação de email
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showError('Por favor, informe um email válido.', emailInput);
+                return;
+            }
+            
+            if (!password) {
+                showError('Por favor, informe a senha.', passwordInput);
+                return;
+            }
+            
+            if (password.length < 6) {
+                showError('A senha deve ter pelo menos 6 caracteres.', passwordInput);
+                return;
+            }
+            
+            if (!confirmPassword) {
+                showError('Por favor, confirme a senha.', confirmPasswordInput);
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showError('As senhas não coincidem. Por favor, verifique.', confirmPasswordInput);
+                return;
+            }
+            
+            // Se todas as validações passarem, enviar o formulário via AJAX
+            const formData = new FormData(form);
+            const submitButton = form.querySelector('button[type="submit"]');
+            const originalButtonText = submitButton.textContent;
+            
+            try {
+                submitButton.disabled = true;
+                submitButton.textContent = 'Criando conta...';
+                
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.redirected) {
+                    // Se redirecionou, significa que foi bem-sucedido
+                    window.location.href = response.url;
+                } else {
+                    // Se não redirecionou, pode haver erro do servidor
+                    const text = await response.text();
+                    
+                    // Tentar extrair mensagem de erro do HTML retornado
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(text, 'text/html');
+                    const flashMessage = doc.querySelector('.alert-error');
+                    
+                    if (flashMessage) {
+                        showError(flashMessage.textContent.trim(), emailInput);
+                    } else if (!response.ok) {
+                        showError('Erro ao criar conta. Por favor, tente novamente.', null);
+                    }
+                }
+            } catch (error) {
+                showError('Erro de conexão. Por favor, verifique sua internet e tente novamente.', null);
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = originalButtonText;
+            }
+        });
+    </script>
 </body>
 </html>
