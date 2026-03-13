@@ -1068,7 +1068,7 @@
         popularSelectVoluntarios(); // Atualizar para adicionar de volta à lista
     }
     
-    function salvarEdicaoModal() {
+    window.salvarEdicaoModal = function() {
         if (!linhaEditando) return;
         
         const td = linhaEditando.querySelector('.nomes-td');
@@ -1091,6 +1091,13 @@
         // Salvar alterações
         salvarDados();
         fecharModalEdicao();
+    }
+    
+    window.fecharModalEdicao = function() {
+        document.getElementById('modalEdicao').style.display = 'none';
+        linhaEditando = null;
+        nomesAtuaisModal = [];
+        tipoEscalaAtual = '';
     }
 
     function mostrarLoginParaSalvar() {
