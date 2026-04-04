@@ -47,8 +47,8 @@ def generate_og_image(html_content, slug):
         # Aguardar carregamento de imagens e fonts
         page.wait_for_load_state('networkidle')
         
-        # Tirar screenshot
-        page.screenshot(path=output_path, full_page=False)
+        # Tirar screenshot com clip exato no viewport OG (1200×630)
+        page.screenshot(path=output_path, full_page=False, clip={'x': 0, 'y': 0, 'width': 1200, 'height': 630})
         
         browser.close()
     
