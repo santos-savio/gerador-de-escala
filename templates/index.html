@@ -408,7 +408,12 @@
             <div><label for="dataFim">Data Fim</label><input type="date" id="dataFim"></div>
         </div>
         
-        <!-- Nome da igreja vem do cadastro do usuário -->
+        <div class="grid-inputs" style="margin-top: 12px;">
+            <div style="grid-column: 1 / -1;">
+                <label for="nomeIgreja">Nome da Igreja</label>
+                <input type="text" id="nomeIgreja" placeholder="IGREJA ADVENTISTA DO SÉTIMO DIA" value="{{ current_user.church_name if current_user else '' }}">
+            </div>
+        </div>
 
         <div class="section-title">👥 Gestão de Equipe</div>
         
@@ -1206,7 +1211,13 @@
         // Abrir modal
         document.getElementById('modalEdicao').style.display = 'flex';
     }
-    
+
+    function excluirLinha(btn) {
+        const row = btn.closest('tr');
+        row.remove();
+        salvarDados();
+    }
+
     function atualizarListaNomesAtuais() {
         const container = document.getElementById('listaNomesAtuais');
         container.innerHTML = '';
@@ -1394,7 +1405,7 @@
         }
         // ----------------------------------------
         const nomeImg = imagensDepartamentos[depto] || "sabatina.jpg";
-        const nomeIgreja = "{{ current_user.church_name if current_user else 'IGREJA ADVENTISTA DO SÉTIMO DIA' }}";
+        const nomeIgreja = document.getElementById('nomeIgreja').value || "{{ current_user.church_name if current_user else 'IGREJA ADVENTISTA DO SÉTIMO DIA' }}";
         const nomeArquivo = `Escala ${depto} - ${mesExibicao.replace(/[^a-zA-Z0-9]/g, ' ')}.png`;
         
         // Coletar dados da escala para salvar no banco

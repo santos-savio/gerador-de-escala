@@ -1094,7 +1094,13 @@
         // Abrir modal
         document.getElementById('modalEdicao').style.display = 'flex';
     }
-    
+
+    function excluirLinha(btn) {
+        const row = btn.closest('tr');
+        row.remove();
+        salvarDados();
+    }
+
     function atualizarListaNomesAtuais() {
         const container = document.getElementById('listaNomesAtuais');
         container.innerHTML = '';
