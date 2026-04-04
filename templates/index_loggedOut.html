@@ -377,6 +377,24 @@
         body.dark-mode .modal-status {
             color: #94a3b8 !important;
         }
+
+        #modalAviso {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1300;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+
+        #modalAviso .modal-save-card {
+            max-width: 360px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -524,6 +542,15 @@
     </div>
 </div>
 
+<!-- Modal de Aviso (substitui alert()) -->
+<div id="modalAviso">
+    <div class="modal-save-card">
+        <div id="modalAvisoIcone" style="font-size: 2.2em; margin-bottom: 10px;"></div>
+        <p id="modalAvisoTexto" style="margin: 0 0 20px 0; font-size: 0.95em; line-height: 1.5; color: var(--text);"></p>
+        <button class="modal-save-btn btn-close-modal" style="width: 100%;" onclick="fecharModalAviso()">OK</button>
+    </div>
+</div>
+
 <!-- Modal de Salvamento -->
 <div id="modalSalvarEscala">
     <div class="modal-save-card">
@@ -580,6 +607,27 @@
         "Ministério Infantil": "infantil.jpg",
         "Outros": "" // Pode deixar vazio ou uma imagem padrão
     };
+
+    /* ============================================================
+       0. MODAL DE AVISO (substitui alert nativo)
+       ============================================================ */
+    function mostrarAviso(mensagem, tipo) {
+        const config = {
+            success: { icone: '✅', cor: '#16a34a' },
+            error:   { icone: '❌', cor: 'var(--danger)' },
+            warning: { icone: '⚠️', cor: '#d97706' },
+            info:    { icone: 'ℹ️', cor: 'var(--primary)' }
+        };
+        const c = config[tipo] || config.info;
+        document.getElementById('modalAvisoIcone').textContent = c.icone;
+        document.getElementById('modalAvisoIcone').style.color = c.cor;
+        document.getElementById('modalAvisoTexto').textContent = mensagem;
+        document.getElementById('modalAviso').style.display = 'flex';
+    }
+
+    function fecharModalAviso() {
+        document.getElementById('modalAviso').style.display = 'none';
+    }
 
     /* ============================================================
        1. CONFIGURAÇÕES INICIAIS E VARIÁVEIS GLOBAIS
@@ -802,7 +850,7 @@
         // Verificar se nome já existe no mesmo grupo
         const array = tipo === 'geral' ? membrosGeral : membrosEspecial;
         if(array.some(m => m.nome.toLowerCase() === nome.toLowerCase())) {
-            alert(`"${nome}" já está cadastrado na equipe ${tipo === 'geral' ? 'congregacional' : 'especial'}!`);
+            mostrarAviso(`"${nome}" já está cadastrado na equipe ${tipo === 'geral' ? 'congregacional' : 'especial'}!`, 'warning');
             return;
         }
         
@@ -918,7 +966,7 @@
        4. LÓGICA DE GERAÇÃO DA ESCALA (O CORAÇÃO DO APP)
        ============================================================ */
     function gerarEscala() {
-        if(membrosGeral.length === 0) return alert("Por favor, cadastre voluntários na equipe.");
+        if(membrosGeral.length === 0) { mostrarAviso("Por favor, cadastre voluntários na equipe.", 'warning'); return; }
         
         const deptoSelect = document.getElementById('tipoEscala');
         const valorSelecionado = deptoSelect.value; // Ex: 'Louvor', 'Diáconos'...
@@ -1158,7 +1206,7 @@
     function abrirModalCompartilhar() {
         const linhas = document.querySelectorAll('#tabelaEscala tbody tr');
         if (linhas.length === 0) {
-            alert('Gere a escala antes de compartilhar.');
+            mostrarAviso('Gere a escala antes de compartilhar.', 'warning');
             return;
         }
         document.getElementById('modalCompartilhar').style.display = 'flex';
@@ -1169,89 +1217,80 @@
     }
     
     function baixarEscalaImagemDireto() {
-        // Fechar modal de compartilhamento
         fecharModalCompartilhar();
-        
-        // Gerar e baixar a imagem
-        setTimeout(() => {
-            baixarEscala();
-        }, 100);
-    }
-    
-    function tentarCompartilharLink() {
-        // Fechar modal de compartilhamento
-        fecharModalCompartilhar();
-        
-        // Salvar dados e mostrar modal de login
-        setTimeout(() => {
-            mostrarModalLogin('compartilhar');
-        }, 100);
+        baixarEscala();
     }
 
-    async function salvarEscalaLista() {
+    function tentarCompartilharLink() {
+        fecharModalCompartilhar();
+        mostrarModalLogin('compartilhar');
+    }
+
+    function salvarEscalaLista() {
+        const linhas = document.querySelectorAll('#tabelaEscala tbody tr');
+        if (linhas.length === 0) {
+            mostrarAviso('Gere a escala antes de salvar.', 'warning');
+            return;
+        }
         mostrarModalLogin('salvar');
     }
 
-    async function compartilharEscala() {
+    function compartilharEscala() {
         abrirModalCompartilhar();
     }
 
     async function baixarEscala() {
         const depto = document.getElementById('tipoEscala').value;
-        const valorMes = document.getElementById('selecaoMes').value; // Ex: "2026-02"
+        const valorMes = document.getElementById('selecaoMes').value;
 
-        // --- NOVA LÓGICA DE FORMATAÇÃO DE MÊS ---
         const mesesNomes = [
             "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
             "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
         ];
 
-        let mesExibicao = valorMes; // Caso algo dê errado, ele mostra o original
+        let mesExibicao = valorMes;
         if (valorMes.includes('-')) {
             const [ano, mes] = valorMes.split('-');
-            const nomeMes = mesesNomes[parseInt(mes) - 1];
-            mesExibicao = `${nomeMes} de ${ano}`;
+            mesExibicao = `${mesesNomes[parseInt(mes) - 1]} de ${ano}`;
         }
-        // ----------------------------------------
+
         const nomeImg = imagensDepartamentos[depto] || "sabatina.jpg";
         const nomeIgreja = document.getElementById('nomeIgreja').value || "IGREJA ADVENTISTA DO SÉTIMO DIA - BOA VISTA";
+        const srcImg = `/IMG/${nomeImg}`;
 
-        // 1. Cria a área de exportação temporária
-        const exportArea = document.createElement('div');
-        exportArea.id = 'escala-export';
-        exportArea.style.backgroundImage = `url('/IMG/${nomeImg}')`;
+        // 1. Pré-carregar a imagem de fundo antes de montar o DOM
+        await new Promise(resolve => {
+            const img = new Image();
+            img.onload = resolve;
+            img.onerror = resolve; // continua mesmo se a imagem falhar
+            img.src = srcImg;
+        });
 
-        // 2. Clona as linhas da tabela (removendo a coluna de 'Ações' para a foto ficar limpa)
+        // 2. Montar linhas da tabela
         let linhasHtml = "";
         document.querySelectorAll('#tabelaEscala tbody tr').forEach(tr => {
-        const tds = tr.querySelectorAll('td');
-        if(tds.length >= 3) {
-            // Pegamos o conteúdo da célula de nomes
-            const nomesConteudo = tds[2].innerHTML; 
+            const tds = tr.querySelectorAll('td');
+            if (tds.length >= 3) {
+                linhasHtml += `
+                    <tr>
+                        <td style="padding:12px; border-bottom:1px solid rgba(0,0,0,0.1); font-weight:bold; vertical-align:top;">${tds[0].innerText}</td>
+                        <td style="padding:12px; border-bottom:1px solid rgba(0,0,0,0.1); vertical-align:top;">${tds[1].innerText}</td>
+                        <td style="padding:12px; border-bottom:1px solid rgba(0,0,0,0.1); vertical-align:top;">
+                            <div style="display:flex; flex-direction:column; gap:8px;">${tds[2].innerHTML}</div>
+                        </td>
+                    </tr>`;
+            }
+        });
 
-            linhasHtml += `
-                <tr>
-                    <td style="padding:12px; border-bottom:1px solid rgba(0,0,0,0.1); font-weight:bold; vertical-align: top;">
-                        ${tds[0].innerText}
-                    </td>
-                    <td style="padding:12px; border-bottom:1px solid rgba(0,0,0,0.1); vertical-align: top;">
-                        ${tds[1].innerText}
-                    </td>
-                    <td style="padding:12px; border-bottom:1px solid rgba(0,0,0,0.1); vertical-align: top;">
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            ${nomesConteudo}
-                        </div>
-                    </td>
-                </tr>`;
-        }
-    });
-
-        // 3. Monta o HTML do que será a imagem
+        // 3. Criar área de exportação com imagem já em cache
+        const exportArea = document.createElement('div');
+        exportArea.id = 'escala-export';
+        exportArea.style.backgroundImage = `url('${srcImg}')`;
         exportArea.innerHTML = `
             <div class="overlay-export">
-                <h1 style="text-align:center; margin:0; font-family: sans-serif;">ESCALA: ${depto.toUpperCase()}</h1>
-                <p style="text-align:center; color:#666; margin-bottom:20px; font-family: sans-serif;">Mês de Referência: ${mesExibicao}</p>
-                <table style="width:100%; border-collapse: collapse; font-family: sans-serif;">
+                <h1 style="text-align:center; margin:0; font-family:sans-serif;">ESCALA: ${depto.toUpperCase()}</h1>
+                <p style="text-align:center; color:#666; margin-bottom:20px; font-family:sans-serif;">Mês de Referência: ${mesExibicao}</p>
+                <table style="width:100%; border-collapse:collapse; font-family:sans-serif;">
                     <thead>
                         <tr style="background:#002e5d; color:white;">
                             <th style="padding:12px; text-align:left;">Data</th>
@@ -1261,30 +1300,23 @@
                     </thead>
                     <tbody>${linhasHtml}</tbody>
                 </table>
-                <div style="margin-top:30px; text-align:center; font-family: sans-serif; font-size:12px; font-weight:bold; border-top: 1px solid #ccc; padding-top: 10px;">
+                <div style="margin-top:30px; text-align:center; font-family:sans-serif; font-size:12px; font-weight:bold; border-top:1px solid #ccc; padding-top:10px;">
                     ${nomeIgreja.toUpperCase()}
                 </div>
             </div>`;
 
         document.body.appendChild(exportArea);
 
-        // 4. Aguarda um pouco para a imagem carregar e tira o print
-        setTimeout(() => {
-            html2canvas(exportArea, { 
-                scale: 2, 
-                useCORS: true, 
-                allowTaint: true 
-            }).then(canvas => {
-                const link = document.createElement('a');
-                const nomeArquivo = `Escala ${depto} - ${mesExibicao.replace(/[^a-zA-Z0-9]/g, ' ')}.png`;
-                link.download = nomeArquivo;
-                link.href = canvas.toDataURL("image/png");
-                link.click();
-                
-                // 5. Remove a área temporária
-                document.body.removeChild(exportArea);
-            });
-        }, 600);
+        // 4. html2canvas imediato — imagem já está em cache do navegador
+        try {
+            const canvas = await html2canvas(exportArea, { scale: 2, useCORS: true, allowTaint: true });
+            const link = document.createElement('a');
+            link.download = `Escala ${depto} - ${mesExibicao.replace(/[^a-zA-Z0-9]/g, ' ')}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        } finally {
+            document.body.removeChild(exportArea);
+        }
     }
 
     function abrirModalSalvarEscala() {
