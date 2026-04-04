@@ -579,18 +579,40 @@
             if (confirmar) {
                 // Restaurar dados nos campos
                 document.getElementById('tipoEscala').value = dados.depto;
-                document.getElementById('selecaoMes').value = dados.dataInicio.substring(0, 7); // YYYY-MM
+                document.getElementById('outroTipo').value = dados.outroTipo || '';
+                document.getElementById('selecaoMes').value = dados.selecaoMes || dados.dataInicio.substring(0, 7);
                 document.getElementById('dataInicio').value = dados.dataInicio;
                 document.getElementById('dataFim').value = dados.dataFim;
-                
-                // Gerar a escala automaticamente (sem executar ação pendente)
-                setTimeout(async () => {
-                    await gerarEscala();
-                    
-                    // Informar ao usuário que a escala foi recuperada
-                    const acaoTexto = acaoPendente === 'salvar' ? 'salvar' : 'compartilhar';
+                // nomeIgreja vem do servidor (current_user.church_name), não há input no DOM logado
+                if (dados.theme) localStorage.setItem('theme', dados.theme);
+                verificarOutros();
+
+                // Restaurar seleção dos dias da semana
+                if (dados.diasConfig && dados.diasConfig.length === 7) {
+                    dados.diasConfig.forEach((cfg, i) => {
+                        const cb = document.getElementById(`dia-${i}`);
+                        const card = document.getElementById(`card-${i}`);
+                        const qtdInput = document.getElementById(`qtd-${i}`);
+                        const qtdEspInput = document.getElementById(`qtd-esp-${i}`);
+                        if (cb) cb.checked = cfg.ativo;
+                        if (card) card.classList.toggle('active', cfg.ativo);
+                        if (qtdInput) qtdInput.value = cfg.qtd;
+                        if (qtdEspInput) qtdEspInput.value = cfg.qtdEsp;
+                    });
+                }
+
+                // Restaurar a escala exata (sem re-aleatorizar)
+                const acaoTexto = acaoPendente === 'salvar' ? 'salvar' : 'compartilhar';
+                const restaurou = restaurarEscalaDeDados(dados);
+                if (restaurou) {
                     alert(`Escala recuperada com sucesso! Agora você pode ${acaoTexto} usando os botões acima.`);
-                }, 500);
+                } else {
+                    // Fallback: escalaDados vazio ou corrompido — re-gera normalmente
+                    setTimeout(async () => {
+                        await gerarEscala();
+                        alert(`Escala recuperada (re-gerada). Agora você pode ${acaoTexto} usando os botões acima.`);
+                    }, 500);
+                }
             }
             
             // Limpar dados pendentes
@@ -601,17 +623,14 @@
 
     // Função executada ao abrir a página
     window.onload = async () => {
-        // 0. Verificar se há dados pendentes de login
-        verificarDadosPendentesLogin();
-        
-        // 1. Tema (Sempre primeiro para evitar "piscada" branca)
+        // 0. Tema (Sempre primeiro para evitar "piscada" branca)
         if(localStorage.getItem('theme') === 'dark') document.body.classList.add('dark-mode');
-        
-        // 2. Criar os cards primeiro! (Para que eles existam no HTML)
+
+        // 1. Criar os cards primeiro! (Para que eles existam no HTML)
         const containerDias = document.getElementById('diasSelecao');
         containerDias.innerHTML = ""; // Limpa antes de preencher
         diasSemanaNome.forEach((dia, index) => {
-            const isDefault = [0,3,6].includes(index); 
+            const isDefault = [0,3,6].includes(index);
             containerDias.innerHTML += `
                 <div class="day-card ${isDefault ? 'active' : ''}" id="card-${index}" onclick="toggleCard(${index})">
                     <span class="day-name">${dia}</span>
@@ -626,10 +645,14 @@
             `;
         });
 
-        // 3. Carregar voluntários do banco
+        // 2. Carregar voluntários do banco
         await carregarVoluntarios();
+        await sincronizarVoluntariosLocais();
         renderizarMembros('geral');
         renderizarMembros('especial');
+
+        // 3. Verificar se há dados pendentes de login (após cards e voluntários existirem)
+        verificarDadosPendentesLogin();
 
         // 4. Recuperar Configurações do localStorage (apenas UI)
         const config = JSON.parse(localStorage.getItem('escala_config'));
@@ -667,6 +690,36 @@
         } catch (error) {
             console.error('Erro ao carregar voluntários:', error);
         }
+
+        // Carregar membros especiais do localStorage (compatibilidade com dados locais)
+        const especiaisLocal = JSON.parse(localStorage.getItem('membros_especial')) || [];
+        membrosEspecial = especiaisLocal.map(v => ({
+            id: v.id || null,
+            nome: v.nome,
+            disponivel: v.disponivel || [0,1,2,3,4,5,6]
+        }));
+    }
+
+    async function sincronizarVoluntariosLocais() {
+        const geralLocal = JSON.parse(localStorage.getItem('membros_geral')) || [];
+        if (geralLocal.length === 0) return;
+
+        const nomesExistentes = new Set(membrosGeral.map(m => m.nome.toLowerCase()));
+        let adicionou = false;
+
+        for (const v of geralLocal) {
+            if (!v.nome) continue;
+            if (!nomesExistentes.has(v.nome.toLowerCase())) {
+                const disponivel = Array.isArray(v.disponivel) ? v.disponivel : [0,1,2,3,4,5,6];
+                const novo = { nome: v.nome, disponivel };
+                const id = await salvarVoluntarioAPI(v.nome, novo.disponivel);
+                if (id) novo.id = id;
+                membrosGeral.push(novo);
+                adicionou = true;
+            }
+        }
+
+        if (adicionou) salvarDados();
     }
 
     async function salvarVoluntarioAPI(nome, disponivel) {
@@ -789,8 +842,9 @@
         
         array.forEach((m, idx) => {
             let botoesDias = "";
+            const disponivel = Array.isArray(m.disponivel) ? m.disponivel : [0,1,2,3,4,5,6];
             diasSemanaNome.forEach((dia, dIdx) => {
-                const ativo = m.disponivel.includes(dIdx);
+                const ativo = disponivel.includes(dIdx);
                 botoesDias += `<button class="mini-dia-btn ${ativo ? 'active' : 'inactive'}" onclick="toggleDiaMembro('${tipo}', ${idx}, ${dIdx})">${dia[0]}</button>`;
             });
             
@@ -885,6 +939,65 @@
     /* ============================================================
        4. LÓGICA DE GERAÇÃO DA ESCALA (O CORAÇÃO DO APP)
        ============================================================ */
+    function restaurarEscalaDeDados(dados) {
+        if (!dados?.escalaDados?.days?.length) return false;
+
+        const isLouvorDepto = dados.depto === 'Louvor';
+
+        // Título (espelha lógica de gerarEscala)
+        let nomeFinal = dados.depto;
+        if (dados.depto === 'Outros') {
+            const outroNome = (dados.outroTipo || '').trim();
+            nomeFinal = outroNome ? '✨ ' + outroNome : 'Outros';
+        } else {
+            const deptoSelect = document.getElementById('tipoEscala');
+            const opt = [...deptoSelect.options].find(o => o.value === dados.depto);
+            if (opt) nomeFinal = opt.text;
+        }
+        const tituloEl = document.getElementById('tituloEscala');
+        tituloEl.innerText = 'ESCALA: ' + nomeFinal;
+        tituloEl.style.display = 'block';
+
+        // Reconstruir tbody
+        const tbody = document.querySelector('#tabelaEscala tbody');
+        tbody.innerHTML = '';
+
+        dados.escalaDados.days.forEach(day => {
+            const rowIsLouvor = (typeof day.isLouvor === 'boolean') ? day.isLouvor : isLouvorDepto;
+
+            let nomesTdHTML;
+            if (rowIsLouvor) {
+                const congNames = (day.volunteers || []).join(', ') || '---';
+                const espNames  = (day.volunteersEsp || []);
+                nomesTdHTML =
+                    `<div class="cong-txt"><span class="badge-louvor bg-congregacional">Congregacional:</span> <span class="val">${congNames}</span></div>` +
+                    (espNames.length > 0
+                        ? `<div class="esp-txt" style="margin-top:5px;"><span class="badge-louvor bg-especial">Especial:</span> <span class="val">${espNames.join(', ')}</span></div>`
+                        : '');
+            } else {
+                nomesTdHTML = (day.volunteers || []).join(', ') || '---';
+            }
+
+            const row = document.createElement('tr');
+            row.dataset.isLouvor = rowIsLouvor;
+            row.innerHTML = `
+                <td style="font-weight:700">${day.date}</td>
+                <td style="color:#666">${day.name}</td>
+                <td class="nomes-td">${nomesTdHTML}</td>
+                <td class="col-acoes">
+                    <button class="btn-icon" onclick="editarLinha(this)">✏️</button>
+                    <button class="btn-icon" onclick="excluirLinha(this)">🗑️</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        salvarDados();
+        renderizarMembros('geral');
+        renderizarMembros('especial');
+        return true;
+    }
+
     function gerarEscala() {
         if(membrosGeral.length === 0) return alert("Por favor, cadastre voluntários na equipe.");
         

@@ -605,45 +605,83 @@
         if (linhas.length === 0) return null;
 
         const depto = document.getElementById('tipoEscala').value;
-        const valorMes = document.getElementById('selecaoMes').value;
+        const outroTipo = document.getElementById('outroTipo').value;
+        const selecaoMes = document.getElementById('selecaoMes').value;
         const dataInicio = document.getElementById('dataInicio').value;
         const dataFim = document.getElementById('dataFim').value;
-        
+        const nomeIgreja = document.getElementById('nomeIgreja').value;
+
         // Formatar mês para exibição
         const mesesNomes = [
             "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
             "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
         ];
-        
-        let mesExibicao = valorMes;
-        if (valorMes.includes('-')) {
-            const [ano, mes] = valorMes.split('-');
+
+        let mesExibicao = selecaoMes;
+        if (selecaoMes.includes('-')) {
+            const [ano, mes] = selecaoMes.split('-');
             const nomeMes = mesesNomes[parseInt(mes) - 1];
             mesExibicao = `${nomeMes} de ${ano}`;
         }
-        
-        // Coletar dados da escala
+
+        // Salvar configuração dos dias da semana
+        const diasConfig = [];
+        for (let i = 0; i < 7; i++) {
+            const cb = document.getElementById(`dia-${i}`);
+            diasConfig.push({
+                ativo: cb ? cb.checked : false,
+                qtd: parseInt(document.getElementById(`qtd-${i}`)?.value) || 1,
+                qtdEsp: parseInt(document.getElementById(`qtd-esp-${i}`)?.value) || 0
+            });
+        }
+
+        // Coletar dados da escala gerada (tabela)
         const escalaDados = { days: [] };
         linhas.forEach(tr => {
             const tds = tr.querySelectorAll('td');
-            if(tds.length >= 3) {
-                escalaDados.days.push({
-                    date: tds[0].innerText,
-                    name: tds[1].innerText,
-                    volunteers: tds[2].innerText.split(',').map(v => v.trim()).filter(v => v && v !== '---')
-                });
+            if (tds.length < 3) return;
+
+            const rowIsLouvor = tr.dataset.isLouvor === "true";
+            let volunteers = [];
+            let volunteersEsp = [];
+
+            if (rowIsLouvor) {
+                const congVal = tds[2].querySelector('.cong-txt .val');
+                volunteers = congVal
+                    ? congVal.innerText.split(',').map(v => v.trim()).filter(v => v && v !== '---')
+                    : [];
+                const espVal = tds[2].querySelector('.esp-txt .val');
+                volunteersEsp = espVal
+                    ? espVal.innerText.split(',').map(v => v.trim()).filter(v => v && v !== '---')
+                    : [];
+            } else {
+                volunteers = tds[2].innerText.split(',').map(v => v.trim()).filter(v => v && v !== '---');
+                volunteersEsp = [];
             }
+
+            escalaDados.days.push({
+                date: tds[0].innerText,
+                name: tds[1].innerText,
+                isLouvor: rowIsLouvor,
+                volunteers,
+                volunteersEsp
+            });
         });
-        
+
         const dadosParaSalvar = {
             depto,
+            outroTipo,
+            selecaoMes,
             dataInicio,
             dataFim,
+            nomeIgreja,
             mesExibicao,
+            diasConfig,
             escalaDados,
+            theme: localStorage.getItem('theme') || 'light',
             timestamp: new Date().toISOString()
         };
-        
+
         // Salvar no localStorage
         localStorage.setItem('escalaPendenteLogin', JSON.stringify(dadosParaSalvar));
         return dadosParaSalvar;
@@ -790,8 +828,9 @@
         
         array.forEach((m, idx) => {
             let botoesDias = "";
+            const disponivel = Array.isArray(m.disponivel) ? m.disponivel : [0,1,2,3,4,5,6];
             diasSemanaNome.forEach((dia, dIdx) => {
-                const ativo = m.disponivel.includes(dIdx);
+                const ativo = disponivel.includes(dIdx);
                 botoesDias += `<button class="mini-dia-btn ${ativo ? 'active' : 'inactive'}" onclick="toggleDiaMembro('${tipo}', ${idx}, ${dIdx})">${dia[0]}</button>`;
             });
             
@@ -919,8 +958,8 @@
                 const qtdCong = parseInt(document.getElementById(`qtd-${diaSemana}`).value) || 1;
                 const qtdEsp = isLouvor ? (parseInt(document.getElementById(`qtd-esp-${diaSemana}`).value) || 0) : 0;
 
-                let aptosGeral = membrosGeral.filter(m => m.disponivel.includes(diaSemana));
-                let aptosEsp = membrosEspecial.filter(m => m.disponivel.includes(diaSemana));
+                let aptosGeral = membrosGeral.filter(m => (Array.isArray(m.disponivel) ? m.disponivel : [0,1,2,3,4,5,6]).includes(diaSemana));
+                let aptosEsp = membrosEspecial.filter(m => (Array.isArray(m.disponivel) ? m.disponivel : [0,1,2,3,4,5,6]).includes(diaSemana));
 
                 let escolhidosCong = aptosGeral
                     .sort((a, b) => (contagemGeral[a.nome] || 0) - (contagemGeral[b.nome] || 0) || (Math.random() - 0.5))
