@@ -388,7 +388,7 @@
         <div class="section-title">📅 Período e Departamento</div>
         <div class="grid-inputs">
             <div>
-                <label>Departamento</label>
+                <label for="tipoEscala">Departamento</label>
                 <select id="tipoEscala" onchange="verificarOutros()">
                     <option value="Técnicos de Som">🔊 Técnicos de Som</option>
                     <option value="Projeção">📽️ Projeção</option>
@@ -403,9 +403,9 @@
                 </select>
                 <input type="text" id="outroTipo" placeholder="Nome do depto" style="display:none; margin-top:8px;">
             </div>
-            <div><label>Mês de Referência</label><input type="month" id="selecaoMes" onchange="preencherDatasPeloMes()"></div>
-            <div><label>Data Início</label><input type="date" id="dataInicio"></div>
-            <div><label>Data Fim</label><input type="date" id="dataFim"></div>
+            <div><label for="selecaoMes">Mês de Referência</label><input type="month" id="selecaoMes" onchange="preencherDatasPeloMes()"></div>
+            <div><label for="dataInicio">Data Início</label><input type="date" id="dataInicio"></div>
+            <div><label for="dataFim">Data Fim</label><input type="date" id="dataFim"></div>
         </div>
         
         <!-- Nome da igreja vem do cadastro do usuário -->
@@ -714,10 +714,10 @@
                 <div class="day-card ${isDefault ? 'active' : ''}" id="card-${index}" onclick="toggleCard(${index})">
                     <span class="day-name">${dia}</span>
                     <input type="checkbox" id="dia-${index}" ${isDefault ? 'checked' : ''} style="display:none">
-                    <label class="label-pess">Pess.</label>
+                    <label class="label-pess" for="qtd-${index}">Pess.</label>
                     <input type="number" id="qtd-${index}" value="1" min="1" onclick="event.stopPropagation()">
                     <div class="especial-input-div" id="esp-div-${index}">
-                        <label class="label-pess">Esp.</label>
+                        <label class="label-pess" for="qtd-esp-${index}">Esp.</label>
                         <input type="number" id="qtd-esp-${index}" value="1" min="0" onclick="event.stopPropagation()">
                     </div>
                 </div>
