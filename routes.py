@@ -5,6 +5,7 @@ from models import Volunteer, Schedule
 from utils import generate_unique_slug, generate_og_image, get_og_image_path, get_og_image_file_path, delete_og_image
 from datetime import datetime
 import json
+import threading
 
 api = Blueprint('api', __name__)
 
@@ -148,14 +149,19 @@ def create_schedule():
     db.session.add(schedule)
     db.session.commit()
     
-    # Gerar imagem OG
-    try:
-        og_image_path = ensure_schedule_image(schedule)
-        
-    except Exception as e:
-        print(f"Erro ao gerar imagem OG: {e}")
-        og_image_path = None
-    
+    # Renderizar HTML enquanto ainda temos contexto de request
+    html_content = render_schedule_download_html(schedule)
+    og_image_path = f"/ogImagesEscalas/{schedule.slug}.png"
+
+    # Gerar imagem em background (generate_og_image não usa contexto Flask)
+    def _gerar_imagem():
+        try:
+            generate_og_image(html_content, schedule.slug)
+        except Exception as e:
+            print(f"Erro ao gerar imagem OG em background: {e}")
+
+    threading.Thread(target=_gerar_imagem, daemon=True).start()
+
     return jsonify({
         'id': schedule.id,
         'slug': schedule.slug,
