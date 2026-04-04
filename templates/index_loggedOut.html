@@ -1317,7 +1317,7 @@
         try {
             const canvas = await html2canvas(exportArea, { scale: 2, useCORS: true, allowTaint: true });
             const link = document.createElement('a');
-            link.download = `Escala ${depto} - ${mesExibicao.replace(/[^a-zA-Z0-9]/g, ' ')}.png`;
+            link.download = `Escala ${depto} - ${mesExibicao.replace(/[/\\:*?"<>|]/g, ' ')}.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
         } finally {
