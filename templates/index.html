@@ -1314,6 +1314,12 @@
             return;
         }
 
+        // Dispara a geração da imagem OG no servidor (necessária para o preview do link no WhatsApp)
+        if (ultimoLinkEscala) {
+            const slug = ultimoLinkEscala.split('/').pop();
+            fetch(`/escala/${slug}/og-image.png`).catch(() => {});
+        }
+
         const waUrl = `https://wa.me/?text=${encodeURIComponent(ultimaMensagemWhatsApp)}`;
         window.open(waUrl, '_blank');
     }
