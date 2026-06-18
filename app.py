@@ -1,11 +1,13 @@
 from flask import Flask, render_template, send_from_directory, redirect, url_for
 from flask_login import login_required, current_user
+from werkzeug.middleware.proxy_fix import ProxyFix
 import os
 from database import init_db
 from auth import auth as auth_blueprint
 from routes import api as api_blueprint
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_prefix=1)
 app.secret_key = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
 
 # Inicializa banco de dados
